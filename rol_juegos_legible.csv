@@ -1,0 +1,37 @@
+Jornada,Fecha,Hora,Cancha,Equipo Local,Equipo Visitante,Equipo Arbitro
+1,2026-05-23,7:00 PM,Cancha 1,Halconsitos,Halcones,Panteras
+1,2026-05-23,7:00 PM,Cancha 2,Lagos,Pinguinos de Madagascar,Cuervos
+1,2026-05-23,8:00 PM,Cancha 1,Panteras,Cuervos,Cardenales
+1,2026-05-23,8:00 PM,Cancha 2,Lagos,Santa Maria,Pinguinos de Madagascar
+1,2026-05-23,9:00 PM,Cancha 1,Cardenales,Felinos,Santa Maria
+2,2026-05-30,7:00 PM,Cancha 1,Pinguinos de Madagascar,Cuervos,Cardenales
+2,2026-05-30,7:00 PM,Cancha 2,Santa Maria,Halconsitos,Felinos
+2,2026-05-30,8:00 PM,Cancha 1,Felinos,Halcones,Santa Maria
+2,2026-05-30,8:00 PM,Cancha 2,Cardenales,Panteras,Cuervos
+3,2026-06-06,7:00 PM,Cancha 1,Panteras,Halcones,Pinguinos de Madagascar
+3,2026-06-06,7:00 PM,Cancha 2,Felinos,Cuervos,Cardenales
+3,2026-06-06,8:00 PM,Cancha 1,Lagos,Cardenales,Halconsitos
+3,2026-06-06,8:00 PM,Cancha 2,Santa Maria,Pinguinos de Madagascar,Panteras
+3,2026-06-06,9:00 PM,Cancha 1,Lagos,Halconsitos,Santa Maria
+4,2026-06-13,7:00 PM,Cancha 1,Felinos,Halconsitos,Cuervos
+4,2026-06-13,7:00 PM,Cancha 2,Santa Maria,Panteras,Pinguinos de Madagascar
+4,2026-06-13,8:00 PM,Cancha 1,Cuervos,Halcones,Panteras
+4,2026-06-13,8:00 PM,Cancha 2,Cardenales,Pinguinos de Madagascar,Felinos
+5,2026-06-20,7:00 PM,Cancha 1,Pinguinos de Madagascar,Halconsitos,Santa Maria
+5,2026-06-20,7:00 PM,Cancha 2,Cardenales,Halcones,Felinos
+5,2026-06-20,8:00 PM,Cancha 1,Santa Maria,Cuervos,Halconsitos
+5,2026-06-20,8:00 PM,Cancha 2,Felinos,Panteras,Halcones
+6,2026-06-27,7:00 PM,Cancha 1,Cardenales,Santa Maria,Halconsitos
+6,2026-06-27,7:00 PM,Cancha 2,Lagos,Panteras,Cuervos
+6,2026-06-27,8:00 PM,Cancha 1,Cuervos,Halconsitos,Halcones
+6,2026-06-27,8:00 PM,Cancha 2,Lagos,Felinos,Panteras
+6,2026-06-27,9:00 PM,Cancha 1,Pinguinos de Madagascar,Halcones,Felinos
+7,2026-07-04,7:00 PM,Cancha 1,Cardenales,Cuervos,Halcones
+7,2026-07-04,7:00 PM,Cancha 2,Felinos,Pinguinos de Madagascar,Panteras
+7,2026-07-04,8:00 PM,Cancha 1,Panteras,Halconsitos,Pinguinos de Madagascar
+7,2026-07-04,8:00 PM,Cancha 2,Santa Maria,Halcones,Cardenales
+8,2026-07-11,7:00 PM,Cancha 1,Felinos,Santa Maria,Cardenales
+8,2026-07-11,7:00 PM,Cancha 2,Lagos,Cuervos,Halconsitos
+8,2026-07-11,8:00 PM,Cancha 1,Cardenales,Halconsitos,Cuervos
+8,2026-07-11,8:00 PM,Cancha 2,Lagos,Halcones,Pinguinos de Madagascar
+8,2026-07-11,9:00 PM,Cancha 1,Panteras,Pinguinos de Madagascar,Halcones
