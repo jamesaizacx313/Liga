@@ -9,6 +9,18 @@ st.set_page_config(
     layout="centered"
 )
 
+# ==========================================
+# 🛑 OCULTAR ELEMENTOS NATIVOS DE STREAMLIT
+# ==========================================
+st.markdown("""
+    <style>
+        [data-testid="stHeader"] { visibility: hidden; display: none; }
+        footer { visibility: hidden; display: none; }
+        #MainMenu { visibility: hidden; display: none; }
+        .stDeployButton { display: none; }
+    </style>
+""", unsafe_allow_html=True)
+
 # Conexión segura a Supabase usando los Secrets de Streamlit
 @st.cache_resource
 def init_supabase():
@@ -39,7 +51,7 @@ BALON_WEB_IMG = '<img src="https://img.icons8.com/color/96/volleyball.png" width
 WHISTLE_SVG = '<svg viewBox="0 0 24 24" width="13" height="13" style="fill: currentColor; vertical-align: middle; margin-right: 6px; display: inline-block;"><path d="M12 3a7 7 0 0 0-6.93 6H2v5h3.07a7 7 0 0 0 11.24 3.73l2.82 2.83 2.12-2.12-2.83-2.82A7 7 0 0 0 12 3zm0 12a5 5 0 1 1 5-5 5 5 0 0 1-5 5z"/></svg>'
 CAR_SVG = '<svg viewBox="0 0 24 24" width="13" height="13" style="fill: #38BDF8; vertical-align: middle; margin-left: 5px; display: inline-block;"><path d="M19 15h-1v-3c0-.6-.4-1-1-1H7c-.6 0-1 .4-1 1v3H5c-.6 0-1 .4-1 1v3c0 .6.4 1 1 1h1c0 1.1.9 2 2 2s2-.9 2-2h4c0 1.1.9 2 2 2s2-.9 2-2h1c0 .6.4 1 1 1v-3c0-.6-.4-1-1-1zM7 13h10v2H7v-2z"/></svg>'
 
-# Hoja de estilos centralizada para control responsivo absoluto
+# Hoja de estilos responsiva con fijación de simetría simétrica
 CSS_HOJA_ESTILOS = """
 <style>
   .pizarra-body { margin: 0; padding: 2px; font-family: system-ui, -apple-system, sans-serif; background-color: transparent; }
@@ -57,15 +69,13 @@ CSS_HOJA_ESTILOS = """
   .match-card { flex: 1; border-radius: 12px; padding: 14px 12px; display: flex; flex-direction: column; justify-content: space-between; min-height: 76px; box-sizing: border-box; min-width: 0; }
   .cancha-badge { display: none; }
   
-  /* 🛠️ FIX: Forzar balance simétrico 50/50 agregando flex: 1 y min-width a la tarjeta de Cerrado */
-  .card-closed { flex: 1; min-width: 0; background-color: #0B0F19; border: 1px dashed #232D42; border-radius: 12px; padding: 14px 12px; display: flex; justify-content: center; align-items: center; color: #475569; font-size: 12px; font-style: italic; min-height: 76px; box-sizing: border-box; }
-  
-  /* Variantes de Tarjetas */
+  /* Variantes de Tarjetas (Fijación de proporción equilibrada) */
+  .card-closed { flex: 1; min-width: 0; background-color: #0B0F19; border: 1px dashed #232D42; border-radius: 12px; display: flex; justify-content: center; align-items: center; color: #475569; font-size: 12px; font-style: italic; min-height: 76px; box-sizing: border-box; }
   .card-juega { background: linear-gradient(135deg, rgba(255,107,53,0.18) 0%, rgba(212,74,29,0.06) 100%); border: 2px solid #FF6B35; box-shadow: 0 0 15px rgba(255,107,53,0.1); }
   .card-pita { background: linear-gradient(135deg, rgba(46,204,113,0.15) 0%, rgba(46,204,113,0.04) 100%); border: 2px solid #2ECC71; }
   .card-regular { background-color: #131B2E; border: 1px solid #232D42; }
   
-  /* Componentes Internos de la Tarjeta */
+  /* Componentes Internos */
   .teams-line { display: flex; align-items: center; justify-content: space-between; width: 100%; gap: 6px; min-width: 0; }
   .team-name { flex: 1; font-size: 13px; font-weight: 800; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #FFFFFF; }
   .team-left { text-align: right; }
@@ -76,7 +86,7 @@ CSS_HOJA_ESTILOS = """
   .ref-line { margin-top: 8px; text-align: center; font-size: 11px; color: #64748B; font-weight: 600; border-top: 1px solid rgba(255,255,255,0.04); padding-top: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .ref-active { color: #2ECC71; font-weight: 800; }
   
-  /* 📱 MEDIA QUERY INTELIGENTE PARA DISPOSITIVOS MÓVILES */
+  /* 📱 RESPONSIVO MÓVIL DIRECTO */
   @media (max-width: 550px) {
     .cancha-headers { display: none; }
     .match-row { flex-direction: column; align-items: stretch; gap: 4px; background-color: rgba(19, 27, 46, 0.3); padding: 10px; border-radius: 14px; border: 1px solid rgba(35, 45, 66, 0.4); }
@@ -89,9 +99,8 @@ CSS_HOJA_ESTILOS = """
 """
 
 # ==========================================
-# BRANDING DE ENCABEZADO WITH SMART COLORS
+# HEADER ADAPTABLE A TEMAS (LIGHT / DARK)
 # ==========================================
-# 🛠️ FIX: Se cambió color: #0F172A por var(--text-color) para visibilidad perfecta en Modo Claro y Oscuro
 HEADER_HTML = f'<div style="text-align: center; margin-bottom: 24px; font-family: system-ui, -apple-system, sans-serif;"><div style="display: inline-flex; align-items: center; background: #1E293B; padding: 6px 18px; border-radius: 50px; box-shadow: 0 4px 15px rgba(0,0,0,0.08); border: 1px solid #334155; margin-bottom: 12px;">{BALON_WEB_IMG}<span style="color: #F8FAFC; font-size: 11px; font-weight: 800; letter-spacing: 2px; text-transform: uppercase;">TORNEO OFICIAL 2026</span></div><h1 style="color: var(--text-color, #0F172A); font-size: 42px; font-weight: 900; letter-spacing: -1.5px; margin: 0; text-transform: uppercase; line-height: 0.95;">LIGA LA CHONA</h1><div style="width: 60px; height: 4px; background: linear-gradient(90deg, #FF6B35, #D44A1D); margin: 14px auto 0 auto; border-radius: 2px;"></div></div>'
 
 st.markdown(HEADER_HTML, unsafe_allow_html=True)
@@ -199,7 +208,7 @@ if jornada_val == "TODAS":
     h_c = 2800
 else:
     pizarra += generar_html_jornada(jornada_val)
-    h_c = 540  
+    h_c = 540
 pizarra += '</div>'
 
 components.html(pizarra, height=h_c, scrolling=True)
