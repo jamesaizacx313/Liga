@@ -10,14 +10,24 @@ st.set_page_config(
 )
 
 # ==========================================
-# 🛑 OCULTAR ELEMENTOS NATIVOS DE STREAMLIT
+# 🛑 BLINDAJE DE INTERFAZ: OCULTAR TODO LO NATIVO
 # ==========================================
 st.markdown("""
     <style>
-        [data-testid="stHeader"] { visibility: hidden; display: none; }
-        footer { visibility: hidden; display: none; }
-        #MainMenu { visibility: hidden; display: none; }
-        .stDeployButton { display: none; }
+        /* Oculta la barra superior completa, menús e iconos de Git/Fork/Deploy */
+        [data-testid="stHeader"], 
+        header, 
+        footer, 
+        .stDeployButton, 
+        #MainMenu, 
+        [data-testid="stToolbar"] { 
+            visibility: hidden !important; 
+            display: none !important; 
+        }
+        /* Ajuste de margen superior para compensar el espacio ocultado */
+        .block-container {
+            padding-top: 1rem !important;
+        }
     </style>
 """, unsafe_allow_html=True)
 
@@ -99,9 +109,28 @@ CSS_HOJA_ESTILOS = """
 """
 
 # ==========================================
-# HEADER ADAPTABLE A TEMAS (LIGHT / DARK)
+# HEADER DETECTA CONFIGURACIÓN DE SISTEMA AUTOMÁTICAMENTE
 # ==========================================
-HEADER_HTML = f'<div style="text-align: center; margin-bottom: 24px; font-family: system-ui, -apple-system, sans-serif;"><div style="display: inline-flex; align-items: center; background: #1E293B; padding: 6px 18px; border-radius: 50px; box-shadow: 0 4px 15px rgba(0,0,0,0.08); border: 1px solid #334155; margin-bottom: 12px;">{BALON_WEB_IMG}<span style="color: #F8FAFC; font-size: 11px; font-weight: 800; letter-spacing: 2px; text-transform: uppercase;">TORNEO OFICIAL 2026</span></div><h1 style="color: var(--text-color, #0F172A); font-size: 42px; font-weight: 900; letter-spacing: -1.5px; margin: 0; text-transform: uppercase; line-height: 0.95;">LIGA LA CHONA</h1><div style="width: 60px; height: 4px; background: linear-gradient(90deg, #FF6B35, #D44A1D); margin: 14px auto 0 auto; border-radius: 2px;"></div></div>'
+HEADER_HTML = f"""
+<style>
+    .titulo-dinamico {{
+        color: #0F172A !important; /* Por defecto en modo claro */
+    }}
+    @media (prefers-color-scheme: dark) {{
+        .titulo-dinamico {{
+            color: #FFFFFF !important; /* Se ilumina a blanco en modo oscuro del sistema */
+        }}
+    }}
+</style>
+<div style="text-align: center; margin-bottom: 24px; font-family: system-ui, -apple-system, sans-serif;">
+    <div style="display: inline-flex; align-items: center; background: #1E293B; padding: 6px 18px; border-radius: 50px; box-shadow: 0 4px 15px rgba(0,0,0,0.08); border: 1px solid #334155; margin-bottom: 12px;">
+        {BALON_WEB_IMG}
+        <span style="color: #F8FAFC; font-size: 11px; font-weight: 800; letter-spacing: 2px; text-transform: uppercase;">TORNEO OFICIAL 2026</span>
+    </div>
+    <h1 class="titulo-dinamico" style="font-size: 42px; font-weight: 900; letter-spacing: -1.5px; margin: 0; text-transform: uppercase; line-height: 0.95;">LIGA LA CHONA</h1>
+    <div style="width: 60px; height: 4px; background: linear-gradient(90deg, #FF6B35, #D44A1D); margin: 14px auto 0 auto; border-radius: 2px;"></div>
+</div>
+"""
 
 st.markdown(HEADER_HTML, unsafe_allow_html=True)
 
