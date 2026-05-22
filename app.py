@@ -57,8 +57,10 @@ CSS_HOJA_ESTILOS = """
   .match-card { flex: 1; border-radius: 12px; padding: 14px 12px; display: flex; flex-direction: column; justify-content: space-between; min-height: 76px; box-sizing: border-box; min-width: 0; }
   .cancha-badge { display: none; }
   
+  /* 🛠️ FIX: Forzar balance simétrico 50/50 agregando flex: 1 y min-width a la tarjeta de Cerrado */
+  .card-closed { flex: 1; min-width: 0; background-color: #0B0F19; border: 1px dashed #232D42; border-radius: 12px; padding: 14px 12px; display: flex; justify-content: center; align-items: center; color: #475569; font-size: 12px; font-style: italic; min-height: 76px; box-sizing: border-box; }
+  
   /* Variantes de Tarjetas */
-  .card-closed { background-color: #0B0F19; border: 1px dashed #232D42; display: flex; justify-content: center; align-items: center; color: #475569; font-size: 12px; font-style: italic; min-height: 76px; box-sizing: border-box; }
   .card-juega { background: linear-gradient(135deg, rgba(255,107,53,0.18) 0%, rgba(212,74,29,0.06) 100%); border: 2px solid #FF6B35; box-shadow: 0 0 15px rgba(255,107,53,0.1); }
   .card-pita { background: linear-gradient(135deg, rgba(46,204,113,0.15) 0%, rgba(46,204,113,0.04) 100%); border: 2px solid #2ECC71; }
   .card-regular { background-color: #131B2E; border: 1px solid #232D42; }
@@ -87,9 +89,10 @@ CSS_HOJA_ESTILOS = """
 """
 
 # ==========================================
-# BRANDING DE ENCABEZADO
+# BRANDING DE ENCABEZADO WITH SMART COLORS
 # ==========================================
-HEADER_HTML = f'<div style="text-align: center; margin-bottom: 24px; font-family: system-ui, -apple-system, sans-serif;"><div style="display: inline-flex; align-items: center; background: #1E293B; padding: 6px 18px; border-radius: 50px; box-shadow: 0 4px 15px rgba(0,0,0,0.08); border: 1px solid #334155; margin-bottom: 12px;">{BALON_WEB_IMG}<span style="color: #F8FAFC; font-size: 11px; font-weight: 800; letter-spacing: 2px; text-transform: uppercase;">TORNEO OFICIAL 2026</span></div><h1 style="color: #0F172A; font-size: 42px; font-weight: 900; letter-spacing: -1.5px; margin: 0; text-transform: uppercase; line-height: 0.95;">LIGA LA CHONA</h1><div style="width: 60px; height: 4px; background: linear-gradient(90deg, #FF6B35, #D44A1D); margin: 14px auto 0 auto; border-radius: 2px;"></div></div>'
+# 🛠️ FIX: Se cambió color: #0F172A por var(--text-color) para visibilidad perfecta en Modo Claro y Oscuro
+HEADER_HTML = f'<div style="text-align: center; margin-bottom: 24px; font-family: system-ui, -apple-system, sans-serif;"><div style="display: inline-flex; align-items: center; background: #1E293B; padding: 6px 18px; border-radius: 50px; box-shadow: 0 4px 15px rgba(0,0,0,0.08); border: 1px solid #334155; margin-bottom: 12px;">{BALON_WEB_IMG}<span style="color: #F8FAFC; font-size: 11px; font-weight: 800; letter-spacing: 2px; text-transform: uppercase;">TORNEO OFICIAL 2026</span></div><h1 style="color: var(--text-color, #0F172A); font-size: 42px; font-weight: 900; letter-spacing: -1.5px; margin: 0; text-transform: uppercase; line-height: 0.95;">LIGA LA CHONA</h1><div style="width: 60px; height: 4px; background: linear-gradient(90deg, #FF6B35, #D44A1D); margin: 14px auto 0 auto; border-radius: 2px;"></div></div>'
 
 st.markdown(HEADER_HTML, unsafe_allow_html=True)
 
@@ -196,7 +199,7 @@ if jornada_val == "TODAS":
     h_c = 2800
 else:
     pizarra += generar_html_jornada(jornada_val)
-    h_c = 540  # Altura calibrada para absorber el estiramiento vertical en móviles seguros
+    h_c = 540  
 pizarra += '</div>'
 
 components.html(pizarra, height=h_c, scrolling=True)
