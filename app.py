@@ -204,7 +204,7 @@ def generar_html_jornada(j_num):
     
     # Validación dinámica de bandera de liberación semanal
     if int(j_num) > JORNADA_ACTIVA:
-        estatus = "⏳ HORARIO PRELIMINAR: Sujeto a modificaciones por la liga"
+        estatus = "⏳ ROL PRELIMINAR: Sujeto a modificaciones por la liga"
         clase_contenedor = "jornada-container jornada-preliminar"
         clase_status = "jornada-status status-preliminar"
     else:
