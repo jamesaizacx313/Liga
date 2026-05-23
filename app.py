@@ -1,18 +1,37 @@
 import streamlit as st
 import streamlit.components.v1 as components
 from supabase import create_client, Client
+from datetime import datetime, timedelta
 
 # Configuración inicial de la página móvil/web
 st.set_page_config(
-    page_title="Liga de Voleibol La Chona",
-    page_icon="🏐",
+    page_icon="https://img.icons8.com/color/96/volleyball.png",
     layout="centered"
 )
 
 # ==========================================
-# 🎛️ CONTROL DE JORNADA ACTIVA
+# 🎛️ CONTROL DE JORNADA ACTIVA Y FECHAS
 # ==========================================
 JORNADA_ACTIVA = 1  # Al cambiar este número, las jornadas futuras se liberan automáticamente
+
+# Fecha de inicio del torneo: Jornada 1 = Sábado 23 de Mayo de 2026
+FECHA_BASE_TORNEO = datetime(2026, 5, 23)
+
+def obtener_fecha_sabado(numero_jornada):
+    """Calcula dinámicamente la fecha del sábado correspondiente a la jornada."""
+    semanas_a_sumar = int(numero_jornada) - 1
+    fecha_calculada = FECHA_BASE_TORNEO + timedelta(weeks=semanas_a_sumar)
+    
+    # Diccionario corregido en orden cronológico real
+    meses_espanol = {
+        1: "Enero", 2: "Febrero", 3: "Marzo", 4: "Abril",
+        5: "Mayo", 6: "Junio", 7: "Julio", 8: "Agosto",
+        9: "Septiembre", 10: "Octubre", 11: "Noviembre", 12: "Diciembre"
+    }
+    
+    dia = fecha_calculada.day
+    mes = meses_espanol[fecha_calculada.month]
+    return f"{dia} {mes}"
 
 # ==========================================
 # 🛑 BLINDAJE DE INTERFAZ: OCULTAR TODO LO NATIVO
@@ -72,8 +91,8 @@ CSS_HOJA_ESTILOS = """
   .pizarra-body { margin: 0; padding: 2px; font-family: system-ui, -apple-system, sans-serif; background-color: transparent; }
   .jornada-container { background-color: #060B14; padding: 16px; border-radius: 16px; margin-bottom: 24px; border: 1px solid #131B2E; box-shadow: 0 10px 30px rgba(0,0,0,0.35); width: 100%; box-sizing: border-box; }
   .jornada-header { text-align: center; border-bottom: 1px solid #1E293B; padding-bottom: 10px; margin-bottom: 14px; }
-  .jornada-title { font-size: 20px; font-weight: 900; color: #FF6B35; text-transform: uppercase; letter-spacing: 0.5px; }
-  .jornada-status { font-size: 11px; color: #38BDF8; font-weight: 700; margin-top: 3px; letter-spacing: 0.5px; }
+  .jornada-title { font-size: 19px; font-weight: 900; color: #FF6B35; text-transform: uppercase; letter-spacing: 0.5px; }
+  .jornada-status { font-size: 11px; color: #38BDF8; font-weight: 700; margin-top: 5px; letter-spacing: 0.5px; }
   .cancha-headers { display: flex; gap: 12px; margin-bottom: 10px; text-align: center; opacity: 0.9; }
   .cancha-header-space { width: 70px; flex-shrink: 0; }
   .cancha-title { flex: 1; color: #4A90E2; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; }
@@ -84,13 +103,11 @@ CSS_HOJA_ESTILOS = """
   .match-card { flex: 1; border-radius: 12px; padding: 14px 12px; display: flex; flex-direction: column; justify-content: space-between; min-height: 76px; box-sizing: border-box; min-width: 0; }
   .cancha-badge { display: none; }
   
-  /* Variantes de Tarjetas (Fijación de simetría) */
   .card-closed { flex: 1; min-width: 0; background-color: #0B0F19; border: 1px dashed #232D42; border-radius: 12px; display: flex; justify-content: center; align-items: center; color: #475569; font-size: 12px; font-style: italic; min-height: 76px; box-sizing: border-box; }
   .card-juega { background: linear-gradient(135deg, rgba(255,107,53,0.18) 0%, rgba(212,74,29,0.06) 100%); border: 2px solid #FF6B35; box-shadow: 0 0 15px rgba(255,107,53,0.1); }
   .card-pita { background: linear-gradient(135deg, rgba(46,204,113,0.15) 0%, rgba(46,204,113,0.04) 100%); border: 2px solid #2ECC71; }
   .card-regular { background-color: #131B2E; border: 1px solid #232D42; }
   
-  /* Componentes Internos */
   .teams-line { display: flex; align-items: center; justify-content: space-between; width: 100%; gap: 6px; min-width: 0; }
   .team-name { flex: 1; font-size: 13px; font-weight: 800; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #FFFFFF; }
   .team-left { text-align: right; }
@@ -101,11 +118,9 @@ CSS_HOJA_ESTILOS = """
   .ref-line { margin-top: 8px; text-align: center; font-size: 11px; color: #64748B; font-weight: 600; border-top: 1px solid rgba(255,255,255,0.04); padding-top: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .ref-active { color: #2ECC71; font-weight: 800; }
   
-  /* Estilo especial para jornadas preliminares */
   .jornada-preliminar { border: 1px dashed #EAB308 !important; box-shadow: 0 10px 30px rgba(234, 179, 8, 0.03) !important; }
   .status-preliminar { color: #EAB308 !important; font-weight: 800 !important; }
 
-  /* 📱 RESPONSIVO MÓVIL (APILADO VERTICAL DE CANCHAS) */
   @media (max-width: 550px) {
     .cancha-headers { display: none; }
     .match-row { flex-direction: column; align-items: stretch; gap: 4px; background-color: rgba(19, 27, 46, 0.3); padding: 10px; border-radius: 14px; border: 1px solid rgba(35, 45, 66, 0.4); }
@@ -202,6 +217,9 @@ def generar_html_jornada(j_num):
     partidos = [p for p in partidos_data if p["jornada"] == int(j_num)]
     tiene_lagos = any("lagos" in equipos_map.get(p["equipo_visita_id"], "").lower() for p in partidos)
     
+    # Cálculo dinámico de la fecha de esta jornada específica
+    fecha_correspondiente = obtener_fecha_sabado(j_num)
+    
     # Validación dinámica de bandera de liberación semanal
     if int(j_num) > JORNADA_ACTIVA:
         estatus = "⏳ ROL PRELIMINAR: Sujeto a modificaciones por la liga"
@@ -231,7 +249,7 @@ def generar_html_jornada(j_num):
     return f"""
     <div class="{clase_contenedor}">
         <div class="jornada-header">
-            <div class="jornada-title">JORNADA {j_num}</div>
+            <div class="jornada-title">JORNADA {j_num} — {fecha_correspondiente.upper()}</div>
             <div class="{clase_status}">{estatus}</div>
         </div>
         <div class="cancha-headers">
