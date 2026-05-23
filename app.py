@@ -10,11 +10,16 @@ st.set_page_config(
 )
 
 # ==========================================
+# 🎛️ CONTROL DE JORNADA ACTIVA
+# ==========================================
+JORNADA_ACTIVA = 1  # Al cambiar este número, las jornadas futuras se liberan automáticamente
+
+# ==========================================
 # 🛑 BLINDAJE DE INTERFAZ: OCULTAR TODO LO NATIVO
 # ==========================================
 st.markdown("""
     <style>
-        /* Oculta la barra superior completa, menús e iconos de Git/Fork/Deploy */
+        /* Elimina barra superior, menús de hamburguesa e iconos de Git/Fork de Streamlit */
         [data-testid="stHeader"], 
         header, 
         footer, 
@@ -24,7 +29,7 @@ st.markdown("""
             visibility: hidden !important; 
             display: none !important; 
         }
-        /* Ajuste de margen superior para compensar el espacio ocultado */
+        /* Maximiza el espacio de lectura en pantallas pequeñas */
         .block-container {
             padding-top: 1rem !important;
         }
@@ -40,8 +45,8 @@ def init_supabase():
 
 supabase = init_supabase()
 
-# Descarga optimizada de datos con caché
-@st.cache_data
+# Descarga de datos optimizada con caché automática de 5 minutos (TTL = 300s)
+@st.cache_data(ttl=300)
 def cargar_datos_torneo():
     res_eq = supabase.table("equipos").select("id, nombre").execute()
     equipos_map = {eq["id"]: eq["nombre"] for eq in res_eq.data}
@@ -55,13 +60,13 @@ except Exception as e:
     st.stop()
 
 # ==========================================
-# 📌 ASSETS GRÁFICOS VECTORIALES
+# 📌 ASSETS GRÁFICOS VECTORIALES (SVG INLINE)
 # ==========================================
 BALON_WEB_IMG = '<img src="https://img.icons8.com/color/96/volleyball.png" width="22" height="22" style="vertical-align: middle; margin-right: 8px; display: inline-block; filter: drop-shadow(0px 2px 4px rgba(0,0,0,0.15));"/>'
 WHISTLE_SVG = '<svg viewBox="0 0 24 24" width="13" height="13" style="fill: currentColor; vertical-align: middle; margin-right: 6px; display: inline-block;"><path d="M12 3a7 7 0 0 0-6.93 6H2v5h3.07a7 7 0 0 0 11.24 3.73l2.82 2.83 2.12-2.12-2.83-2.82A7 7 0 0 0 12 3zm0 12a5 5 0 1 1 5-5 5 5 0 0 1-5 5z"/></svg>'
 CAR_SVG = '<svg viewBox="0 0 24 24" width="13" height="13" style="fill: #38BDF8; vertical-align: middle; margin-left: 5px; display: inline-block;"><path d="M19 15h-1v-3c0-.6-.4-1-1-1H7c-.6 0-1 .4-1 1v3H5c-.6 0-1 .4-1 1v3c0 .6.4 1 1 1h1c0 1.1.9 2 2 2s2-.9 2-2h4c0 1.1.9 2 2 2s2-.9 2-2h1c0 .6.4 1 1 1v-3c0-.6-.4-1-1-1zM7 13h10v2H7v-2z"/></svg>'
 
-# Hoja de estilos responsiva con fijación de simetría simétrica
+# Hoja de estilos centralizada con soporte responsivo y estados preliminares
 CSS_HOJA_ESTILOS = """
 <style>
   .pizarra-body { margin: 0; padding: 2px; font-family: system-ui, -apple-system, sans-serif; background-color: transparent; }
@@ -79,7 +84,7 @@ CSS_HOJA_ESTILOS = """
   .match-card { flex: 1; border-radius: 12px; padding: 14px 12px; display: flex; flex-direction: column; justify-content: space-between; min-height: 76px; box-sizing: border-box; min-width: 0; }
   .cancha-badge { display: none; }
   
-  /* Variantes de Tarjetas (Fijación de proporción equilibrada) */
+  /* Variantes de Tarjetas (Fijación de simetría) */
   .card-closed { flex: 1; min-width: 0; background-color: #0B0F19; border: 1px dashed #232D42; border-radius: 12px; display: flex; justify-content: center; align-items: center; color: #475569; font-size: 12px; font-style: italic; min-height: 76px; box-sizing: border-box; }
   .card-juega { background: linear-gradient(135deg, rgba(255,107,53,0.18) 0%, rgba(212,74,29,0.06) 100%); border: 2px solid #FF6B35; box-shadow: 0 0 15px rgba(255,107,53,0.1); }
   .card-pita { background: linear-gradient(135deg, rgba(46,204,113,0.15) 0%, rgba(46,204,113,0.04) 100%); border: 2px solid #2ECC71; }
@@ -96,7 +101,11 @@ CSS_HOJA_ESTILOS = """
   .ref-line { margin-top: 8px; text-align: center; font-size: 11px; color: #64748B; font-weight: 600; border-top: 1px solid rgba(255,255,255,0.04); padding-top: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .ref-active { color: #2ECC71; font-weight: 800; }
   
-  /* 📱 RESPONSIVO MÓVIL DIRECTO */
+  /* Estilo especial para jornadas preliminares */
+  .jornada-preliminar { border: 1px dashed #EAB308 !important; box-shadow: 0 10px 30px rgba(234, 179, 8, 0.03) !important; }
+  .status-preliminar { color: #EAB308 !important; font-weight: 800 !important; }
+
+  /* 📱 RESPONSIVO MÓVIL (APILADO VERTICAL DE CANCHAS) */
   @media (max-width: 550px) {
     .cancha-headers { display: none; }
     .match-row { flex-direction: column; align-items: stretch; gap: 4px; background-color: rgba(19, 27, 46, 0.3); padding: 10px; border-radius: 14px; border: 1px solid rgba(35, 45, 66, 0.4); }
@@ -109,17 +118,13 @@ CSS_HOJA_ESTILOS = """
 """
 
 # ==========================================
-# HEADER DETECTA CONFIGURACIÓN DE SISTEMA AUTOMÁTICAMENTE
+# HEADER DETECTA ENTORNO OSCURO AUTOMÁTICAMENTE
 # ==========================================
 HEADER_HTML = f"""
 <style>
-    .titulo-dinamico {{
-        color: #0F172A !important; /* Por defecto en modo claro */
-    }}
+    .titulo-dinamico {{ color: #0F172A !important; }}
     @media (prefers-color-scheme: dark) {{
-        .titulo-dinamico {{
-            color: #FFFFFF !important; /* Se ilumina a blanco en modo oscuro del sistema */
-        }}
+        .titulo-dinamico {{ color: #FFFFFF !important; }}
     }}
 </style>
 <div style="text-align: center; margin-bottom: 24px; font-family: system-ui, -apple-system, sans-serif;">
@@ -196,7 +201,16 @@ def obtener_html_tarjeta(partido, eq_filtro, cancha_label):
 def generar_html_jornada(j_num):
     partidos = [p for p in partidos_data if p["jornada"] == int(j_num)]
     tiene_lagos = any("lagos" in equipos_map.get(p["equipo_visita_id"], "").lower() for p in partidos)
-    estatus = "⚡ JORNADA ESPECIAL: Lagos de visita (Franja 9 PM Activa)" if tiene_lagos else "🏠 OPERACIÓN REGULAR: Cierre 10:00 PM"
+    
+    # Validación dinámica de bandera de liberación semanal
+    if int(j_num) > JORNADA_ACTIVA:
+        estatus = "⏳ HORARIO PRELIMINAR: Sujeto a modificaciones por la liga"
+        clase_contenedor = "jornada-container jornada-preliminar"
+        clase_status = "jornada-status status-preliminar"
+    else:
+        estatus = "⚡ JORNADA ESPECIAL: Lagos de visita (Franja 9 PM Activa)" if tiene_lagos else "🏠 OPERACIÓN REGULAR: Cierre 10:00 PM"
+        clase_contenedor = "jornada-container"
+        clase_status = "jornada-status"
     
     bloques = ""
     for h in ["7:00 PM", "8:00 PM", "9:00 PM"]:
@@ -215,10 +229,10 @@ def generar_html_jornada(j_num):
         </div>"""
         
     return f"""
-    <div class="jornada-container">
+    <div class="{clase_contenedor}">
         <div class="jornada-header">
             <div class="jornada-title">JORNADA {j_num}</div>
-            <div class="jornada-status">{estatus}</div>
+            <div class="{clase_status}">{estatus}</div>
         </div>
         <div class="cancha-headers">
             <div class="cancha-header-space"></div>
