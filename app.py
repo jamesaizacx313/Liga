@@ -22,7 +22,7 @@ if MODO_PAUSA:
 # ==========================================
 # 🎛️ CONTROL DE JORNADA ACTIVA Y FECHAS
 # ==========================================
-JORNADA_ACTIVA = 2  # Cambiado a 2 por defecto para el próximo sábado
+JORNADA_ACTIVA = 2  # Apunta por defecto a la jornada de este próximo sábado
 
 # Fecha de inicio del torneo: Jornada 1 = Sábado 23 de Mayo de 2026
 FECHA_BASE_TORNEO = datetime(2026, 5, 23)
@@ -157,25 +157,24 @@ HEADER_HTML = f"""
 """
 
 # ==========================================
-# 🎫 ESTRUCTURA DE PESTAÑAS (TABS MASTER)
+# 🎫 SEPARACIÓN DE PESTAÑAS MEJORADAS
 # ==========================================
 tab_publico, tab_admin = st.tabs(["🏐 ROL Y RESULTADOS", "🔒 GENERADOR DE ROL"])
 
+# ==========================================
+# 👥 PESTAÑA 1: VISTA PÚBLICA DE JUGADORES
+# ==========================================
 with tab_publico:
     st.markdown(HEADER_HTML, unsafe_allow_html=True)
     
-    # FILTROS DE INTERFAZ PÚBLICA
     col1, col2 = st.columns(2)
     with col1:
-        # Forzamos que la Jornada 2 aparezca en el selectbox aunque no haya datos en el histórico
         jornadas_db = list(set([p["jornada"] for p in partidos_data]))
         if 2 not in jornadas_db:
             jornadas_db.append(2)
         jornadas = sorted(jornadas_db)
         
         opciones_j = ["📅 TODAS LAS JORNADAS"] + [f"📅 JORNADA {j}" for j in jornadas]
-        
-        # Calculamos el índice por defecto para que inicie de forma nativa en la JORNADA 2
         default_index = opciones_j.index("📅 JORNADA 2") if "📅 JORNADA 2" in opciones_j else 1
         
         jornada_sel = st.selectbox("j_f", opciones_j, index=default_index, label_visibility="collapsed")
@@ -186,7 +185,6 @@ with tab_publico:
         equipo_sel = st.selectbox("e_f", opciones_e, index=0, label_visibility="collapsed")
         equipo_val = "VER TODO" if "TODOS" in equipo_sel else equipo_sel
 
-    # LÓGICA DE TARJETAS HTML CON HISTORIAL DE RESULTADOS
     def obtener_html_tarjeta(partido, eq_filtro, cancha_label):
         if not partido:
             return f"""
@@ -210,7 +208,7 @@ with tab_publico:
         html_arb = f'<span class="ref-active">{WHISTLE_SVG} PITA: {arb.upper()}</span>' if (arb == eq_filtro and eq_filtro != "VER TODO") else f'{WHISTLE_SVG} Pita: <span style="color: #94A3B8;">{arb}</span>'
         lagos_icon = CAR_SVG if "lagos" in vis.lower() else ""
 
-        # SISTEMA DE STORYTELLING VISUAL: MARCAR GANADOR Y PERDEDOR
+        # Marcado inteligente de ganadores y perdedores históricos
         if partido.get("ganador_id") is not None:
             if partido["ganador_id"] == partido["equipo_local_id"]:
                 loc = f"👑 <span style='color: #FF6B35; font-weight:900;'>{loc}</span>"
@@ -235,7 +233,6 @@ with tab_publico:
         partidos = [p for p in partidos_data if p["jornada"] == int(j_num)]
         fecha_correspondiente = obtener_fecha_sabado(j_num)
         
-        # CASO JORNADA VACÍA (POR DEFECTO JORNADA 2)
         if not partidos:
             return f"""
             <div class="jornada-container jornada-preliminar" style="text-align: center; padding: 35px 20px;">
@@ -243,7 +240,7 @@ with tab_publico:
                     <div class="jornada-title">JORNADA {j_num} — {fecha_correspondiente.upper()}</div>
                     <div class="jornada-status status-preliminar" style="font-size: 13px; margin-top: 14px; letter-spacing:1px;">⏳ EN ESPERA DE CONFIRMACIÓN</div>
                 </div>
-                <p style="color: #64748B; font-size: 12px; margin-top: 10px; font-style: italic;">Los delegados de los equipos están confirmando asistencia y horarios disponibles para las canchas.</p>
+                <p style="color: #64748B; font-size: 12px; margin-top: 10px; font-style: italic;">Los delegados están confirmando asistencia y horarios disponibles para las canchas.</p>
             </div>"""
 
         tiene_lagos = any("lagos" in equipos_map.get(p["equipo_visita_id"], "").lower() for p in partidos)
@@ -285,41 +282,164 @@ with tab_publico:
             <div class="rows-container">{bloques}</div>
         </div>"""
 
-    # RENDERIZADO FINAL DEL IFRAME RESPONSIVO
     pizarra = f'<div class="pizarra-body">{CSS_HOJA_ESTILOS}'
     if jornada_val == "TODAS":
         for j in jornadas: pizarra += generar_html_jornada(j)
         h_c = 2800
     else:
         pizarra += generar_html_jornada(jornada_val)
-        # Ajuste inteligente de altura si la jornada está vacía o llena
         partidos_existentes = [p for p in partidos_data if p["jornada"] == jornada_val]
         h_c = 540 if partidos_existentes else 200
     pizarra += '</div>'
 
     components.html(pizarra, height=h_c, scrolling=True)
 
+
 # ==========================================
-    # 🔒 PESTAÑA: MÓDULO ADMINISTRADOR SEGURO
-    # ==========================================
-    with tab_admin:
-        st.markdown("### ⚙️ Panel de Control Operacional")
+# 🔒 PESTAÑA 2: MÓDULO ADMINISTRADOR SEGURO
+# ==========================================
+with tab_admin:
+    st.markdown("### ⚙️ Panel de Control Operacional")
+    
+    password_admin = st.text_input("Introduce la clave de acceso de la liga:", type="password")
+    
+    try:
+        # Validación estricta contra el archivo secrets.toml sin valores por defecto arriesgados
+        clave_correcta = st.secrets["ADMIN_PASSWORD"]
         
-        # Validación estricta contra secrets.toml (sin valores por defecto)
-        password_admin = st.text_input("Introduce la clave de acceso de la liga:", type="password")
-        
-        try:
-            clave_correcta = st.secrets["ADMIN_PASSWORD"]
+        if password_admin == clave_correcta:
+            st.success("🔓 Autenticación exitosa. Bienvenido Operador.")
+            st.markdown("---")
             
-            if password_admin == clave_correcta:
-                st.success("🔓 Autenticación exitosa. Bienvenido Operador.")
+            # Cálculo matemático de balances en tiempo real basado en ganador_id
+            balances = {eq_nombre: {"partidos": 0, "arbitrajes": 0, "juegos_7pm": 0} for eq_nombre in equipos_map.values()}
+            for p in partidos_data:
+                if p.get("ganador_id") is not None:
+                    loc = equipos_map.get(p["equipo_local_id"])
+                    vis = equipos_map.get(p["equipo_visita_id"])
+                    arb = equipos_map.get(p["equipo_arbitro_id"])
+                    hora = p["hora"]
+                    if loc: balances[loc]["partidos"] += 1
+                    if vis: balances[vis]["partidos"] += 1
+                    if arb: balances[arb]["arbitrajes"] += 1
+                    if hora == "7:00 PM":
+                        if loc: balances[loc]["juegos_7pm"] += 1
+                        if vis: balances[vis]["juegos_7pm"] += 1
+            
+            # 1. ASISTENCIA SEMANAL (WhatsApp)
+            st.subheader("1. Confirmación de Equipos Disponibles")
+            equipos_disponibles = st.multiselect(
+                "Selecciona los equipos que confirmaron asistencia para este Sábado 30:",
+                options=sorted(list(equipos_map.values())),
+                default=[]
+            )
+            
+            if "partidos_propuestos" not in st.session_state:
+                st.session_state.partidos_propuestos = []
+                
+            st.markdown("---")
+            
+            # 2. ASISTENTE DE EMPAREJAMIENTO INTELIGENTE
+            st.subheader("2. Programar Partido del Sábado")
+            col_l, col_v, col_a = st.columns(3)
+            with col_l:
+                local = st.selectbox("Equipo Local", ["—"] + equipos_disponibles)
+            with col_v:
+                opciones_v = [e for e in equipos_disponibles if e != local]
+                visita = st.selectbox("Equipo Visitante", ["—"] + opciones_v)
+            with col_a:
+                opciones_a = [e for e in equipos_disponibles if e != local and e != visita]
+                arbitro = st.selectbox("Equipo Árbitro", ["—"] + opciones_a)
+                
+            col_can, col_hor = st.columns(2)
+            with col_can:
+                cancha_sel = st.selectbox("Cancha de Juego", ["Cancha 1", "Cancha 2"])
+            with col_hor:
+                hora_sel = st.selectbox("Horario de Juego", ["7:00 PM", "8:00 PM", "9:00 PM"])
+                
+            if st.button("Validar e Incorporar Juego al Rol Semanal"):
+                if local != "—" and visita != "—" and arbitro != "—":
+                    
+                    espacio_ocupado = any(p["cancha"] == cancha_sel and p["hora"] == hora_sel for p in st.session_state.partidos_propuestos)
+                    cancha_1_7pm_llena = any(p["cancha"] == "Cancha 1" and p["hora"] == "7:00 PM" for p in st.session_state.partidos_propuestos)
+                    
+                    if espacio_ocupado:
+                        st.error(f"❌ Inconsistencia: El espacio {cancha_sel} a las {hora_sel} ya está asignado en este rol.")
+                    
+                    # Regla estricta: Cancha 2 a las 7 PM solo si Cancha 1 a las 7 PM ya está ocupada
+                    elif cancha_sel == "Cancha 2" and hora_sel == "7:00 PM" and not cancha_1_7pm_llena:
+                        st.error("⚠️ La Cancha 2 a las 7:00 PM es bajo demanda. Primero debes asignar el juego de las 7:00 PM en la Cancha 1.")
+                    else:
+                        st.session_state.partidos_propuestos.append({
+                            "jornada": 2,
+                            "fecha": "2026-05-30",
+                            "hora": hora_sel,
+                            "cancha": cancha_sel,
+                            "local": local,
+                            "visita": visita,
+                            "arbitro": arbitro
+                        })
+                        st.toast(f"✔️ {local} vs {visita} agregado a la cola.")
+                else:
+                    st.error("❌ Error: Debes seleccionar Local, Visitante y Árbitro.")
+
+            # 3. MOSTRAR COLA Y SUBE A SUPABASE (CON REEMPLAZO)
+            if st.session_state.partidos_propuestos:
+                st.markdown("---")
+                st.subheader("📋 Vista Previa del Nuevo Rol Semanal")
+                
+                for idx, juego in enumerate(st.session_state.partidos_propuestos):
+                    st.text(f"🔹 Juego {idx+1}: [{juego['cancha']} - {juego['hora']}] {juego['local']} vs {juego['visita']} (Pita: {juego['arbitro']})")
+                
+                if st.button("🗑️ Limpiar Cola de Partidos"):
+                    st.session_state.partidos_propuestos = []
+                    st.rerun()
+
                 st.markdown("---")
                 
-                # ... (El resto de tu código de administración sigue exactamente igual aquí abajo)
-                
-            elif password_admin != "":
-                st.error("❌ Clave de administrador incorrecta.")
-                
-        except KeyError:
-            st.error("❌ **Error de Configuración:** No se encontró la variable 'ADMIN_PASSWORD' en los Secrets de Streamlit.")
-            st.info("Asegúrate de tener tu archivo en `.streamlit/secrets.toml` con la línea: `ADMIN_PASSWORD = \"tu_clave\"`")
+                if st.button("🚀 ENVIAR ROL DE JORNADA 2 A PRODUCCIÓN", type="primary"):
+                    with st.spinner("Actualizando rol en Supabase..."):
+                        try:
+                            nombre_a_id = {v: k for k, v in equipos_map.items()}
+                            
+                            datos_supabase = []
+                            for p in st.session_state.partidos_propuestos:
+                                datos_supabase.append({
+                                    "jornada": int(p["jornada"]),
+                                    "fecha": p["fecha"],
+                                    "hora": p["hora"],
+                                    "cancha": p["cancha"],
+                                    "equipo_local_id": nombre_a_id.get(p["local"]),
+                                    "equipo_visita_id": nombre_a_id.get(p["visita"]),
+                                    "equipo_arbitro_id": nombre_a_id.get(p["arbitro"]),
+                                    "ganador_id": None,
+                                    "perdedor_id": None
+                                })
+                            
+                            # LIMPIEZA PREVIA INTELIGENTE: Evita duplicados borrando solo los juegos futuros no jugados
+                            supabase.table("partidos")\
+                                    .delete()\
+                                    .eq("jornada", 2)\
+                                    .is_("ganador_id", "null")\
+                                    .execute()
+                            
+                            # Inyección masiva limpia
+                            supabase.table("partidos").insert(datos_supabase).execute()
+                            
+                            # Actualización inmediata de caché pública
+                            st.cache_data.clear()
+                            
+                            st.balloons()
+                            st.success("¡Rol actualizado con éxito! Las modificaciones ya están en vivo.")
+                            st.session_state.partidos_propuestos = []
+                            st.rerun()
+                            
+                        except Exception as error_db:
+                            st.error(f"❌ Error al guardar en la base de datos: {error_db}")
+                            
+        elif password_admin != "":
+            st.error("❌ Clave de administrador incorrecta.")
+            
+    except KeyError:
+        st.error("❌ **Error de Configuración:** No se encontró la variable 'ADMIN_PASSWORD' en los Secrets de Streamlit.")
+        st.info("Asegúrate de que tu archivo local tenga la línea: `ADMIN_PASSWORD = \"tu_clave\"` dentro de `.streamlit/secrets.toml`")
