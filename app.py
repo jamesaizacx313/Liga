@@ -10,6 +10,17 @@ st.set_page_config(
 )
 
 # ==========================================
+# 🚨 INTERRUPTOR DE PAUSA DESDE STREAMLIT CLOUD
+# ==========================================
+# Lee la variable desde el panel web de Streamlit. Si no está declarada, es False por defecto.
+MODO_PAUSA = st.secrets.get("MODO_PAUSA", True)
+
+if MODO_PAUSA:
+    st.warning("⚠️ **La Chona Liga está en mantenimiento temporal.**")
+    st.info("Estamos actualizando la base de datos y los roles de juego de la semana. ¡Regresamos en breve! 🏐")
+    st.stop()  # Detiene la ejecución aquí mismo y oculta el resto de la app
+
+# ==========================================
 # 🎛️ CONTROL DE JORNADA ACTIVA Y FECHAS
 # ==========================================
 JORNADA_ACTIVA = 1  # Al cambiar este número, las jornadas futuras se liberan automáticamente
