@@ -326,13 +326,24 @@ with tab_admin:
                         if loc: balances[loc]["juegos_7pm"] += 1
                         if vis: balances[vis]["juegos_7pm"] += 1
             
-            # 1. ASISTENCIA SEMANAL (WhatsApp)
+            # 1. ASISTENCIA SEMANAL (WhatsApp) — DISEÑO ÁGIL CON CHECKBOXES
             st.subheader("1. Confirmación de Equipos Disponibles")
-            equipos_disponibles = st.multiselect(
-                "Selecciona los equipos que confirmaron asistencia para este Sábado 30:",
-                options=sorted(list(equipos_map.values())),
-                default=[]
-            )
+            st.markdown("<small style='color: #94A3B8;'>Marca los equipos que confirmaron asistencia por WhatsApp para este Sábado 30:</small>", unsafe_allow_html=True)
+            
+            # Obtenemos la lista ordenada de equipos
+            lista_equipos_ordenada = sorted(list(equipos_map.values()))
+            equipos_disponibles = []
+            
+            # Creamos 2 columnas para distribuir las casillas de forma estética
+            cols_asistencia = st.columns(2)
+            
+            # Recorremos los equipos y los distribuimos entre las columnas
+            for idx, eq_nombre in enumerate(lista_equipos_ordenada):
+                col_actual = cols_asistencia[idx % 2] # Alterna entre columna 1 y columna 2
+                with col_actual:
+                    # Si el checkbox está marcado, agregamos el equipo a la lista de disponibles
+                    if st.checkbox(eq_nombre, key=f"chk_{eq_nombre}"):
+                        equipos_disponibles.append(eq_nombre)
             
             if "partidos_propuestos" not in st.session_state:
                 st.session_state.partidos_propuestos = []
@@ -436,7 +447,7 @@ with tab_admin:
                             
                         except Exception as error_db:
                             st.error(f"❌ Error al guardar en la base de datos: {error_db}")
-                            
+                            f
         elif password_admin != "":
             st.error("❌ Clave de administrador incorrecta.")
             
