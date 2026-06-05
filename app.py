@@ -22,7 +22,7 @@ if MODO_PAUSA:
 # ==========================================
 # 🎛️ CONTROL DE JORNADA ACTIVA Y FECHAS
 # ==========================================
-JORNADA_ACTIVA = 2  # Apunta de forma nativa a la jornada de este próximo sábado
+JORNADA_ACTIVA = 3  # Apunta de forma nativa a la jornada de este próximo sábado
 
 # Fecha de inicio del torneo: Jornada 1 = Sábado 23 de Mayo de 2026
 FECHA_BASE_TORNEO = datetime(2026, 5, 23)
@@ -140,24 +140,18 @@ CSS_HOJA_ESTILOS = """
 """
 
 HEADER_HTML = f"""
-<style>
-    .titulo-dinamico {{ color: #0F172A !important; }}
-    @media (prefers-color-scheme: dark) {{
-        .titulo-dinamico {{ color: #FFFFFF !important; }}
-    }}
-</style>
 <div style="text-align: center; margin-bottom: 24px; font-family: system-ui, -apple-system, sans-serif;">
     <div style="display: inline-flex; align-items: center; background: #1E293B; padding: 6px 18px; border-radius: 50px; box-shadow: 0 4px 15px rgba(0,0,0,0.08); border: 1px solid #334155; margin-bottom: 12px;">
         {BALON_WEB_IMG}
         <span style="color: #F8FAFC; font-size: 11px; font-weight: 800; letter-spacing: 2px; text-transform: uppercase;">TORNEO OFICIAL 2026</span>
     </div>
-    <h1 class="titulo-dinamico" style="font-size: 42px; font-weight: 900; letter-spacing: -1.5px; margin: 0; text-transform: uppercase; line-height: 0.95;">LIGA LA CHONA</h1>
+    <h1 style="color: #FFFFFF; font-size: 42px; font-weight: 900; letter-spacing: -1.5px; margin: 0; text-transform: uppercase; line-height: 0.95;">LIGA LA CHONA</h1>
     <div style="width: 60px; height: 4px; background: linear-gradient(90deg, #FF6B35, #D44A1D); margin: 14px auto 0 auto; border-radius: 2px;"></div>
 </div>
 """
 
 # ==========================================
-# 🎫 SEPARACIÓN DE PESTAÑAS (TABS ACTUALIZADOS)
+# 🎫 SEPARACIÓN DE PESTAÑAS
 # ==========================================
 tab_publico, tab_admin = st.tabs(["🏐 ROL Y RESULTADOS", "🔒 GENERADOR DE ROL"])
 
@@ -170,12 +164,12 @@ with tab_publico:
     col1, col2 = st.columns(2)
     with col1:
         jornadas_db = list(set([p["jornada"] for p in partidos_data]))
-        if 2 not in jornadas_db:
-            jornadas_db.append(2)
+        if 3 not in jornadas_db:
+            jornadas_db.append(3)
         jornadas = sorted(jornadas_db)
         
         opciones_j = ["📅 TODAS LAS JORNADAS"] + [f"📅 JORNADA {j}" for j in jornadas]
-        default_index = opciones_j.index("📅 JORNADA 2") if "📅 JORNADA 2" in opciones_j else 1
+        default_index = opciones_j.index("📅 JORNADA 3") if "📅 JORNADA 3" in opciones_j else 1
         
         jornada_sel = st.selectbox("j_f", opciones_j, index=default_index, label_visibility="collapsed")
         jornada_val = "TODAS" if "TODAS" in jornada_sel else int(jornada_sel.split("JORNADA ")[1])
@@ -208,7 +202,6 @@ with tab_publico:
         html_arb = f'<span class="ref-active">{WHISTLE_SVG} PITA: {arb.upper()}</span>' if (arb == eq_filtro and eq_filtro != "VER TODO") else f'{WHISTLE_SVG} Pita: <span style="color: #94A3B8;">{arb}</span>'
         lagos_icon = CAR_SVG if "lagos" in vis.lower() else ""
 
-        # Identificación e inyección visual del ganador con coronas reales
         if partido.get("ganador_id") is not None:
             if partido["ganador_id"] == partido["equipo_local_id"]:
                 loc = f"👑 <span style='color: #FF6B35; font-weight:900;'>{loc}</span>"
@@ -233,7 +226,6 @@ with tab_publico:
         partidos = [p for p in partidos_data if p["jornada"] == int(j_num)]
         fecha_correspondiente = obtener_fecha_sabado(j_num)
         
-        # Estado vacío por defecto (Jornada 2 en espera de confirmaciones)
         if not partidos:
             return f"""
             <div class="jornada-container jornada-preliminar" style="text-align: center; padding: 35px 20px;">
@@ -258,6 +250,7 @@ with tab_publico:
             p_hora = [p for p in partidos if p["hora"] == h]
             p_c1 = next((p for p in p_hora if p["cancha"] == "Cancha 1"), None)
             p_c2 = next((p for p in p_hora if p["cancha"] == "Cancha 2"), None)
+            if h == "7:00 PM" and not p_c1 and not p_c2: continue
             if h == "9:00 PM" and not p_c1 and not p_c2: continue
             
             bloques += f"""
@@ -305,14 +298,12 @@ with tab_admin:
     password_admin = st.text_input("Introduce la clave de acceso de la liga:", type="password")
     
     try:
-        # Validación estricta contra el archivo secrets.toml sin bypass por defecto
         clave_correcta = st.secrets["ADMIN_PASSWORD"]
         
         if password_admin == clave_correcta:
             st.success("🔓 Autenticación exitosa. Bienvenido Operador.")
             st.markdown("---")
             
-            # Cálculo matemático de balances históricos en vivo basados en ganador_id
             balances = {eq_nombre: {"partidos": 0, "arbitrajes": 0, "juegos_7pm": 0} for eq_nombre in equipos_map.values()}
             for p in partidos_data:
                 if p.get("ganador_id") is not None:
@@ -328,10 +319,10 @@ with tab_admin:
                         if vis: balances[vis]["juegos_7pm"] += 1
             
             # ------------------------------------------
-            # 1. ASISTENCIA SEMANAL — DISEÑO ÁGIL CON CHECKBOXES
+            # 1. ASISTENCIA SEMANAL
             # ------------------------------------------
             st.subheader("1. Confirmación de Equipos Disponibles")
-            st.markdown("<small style='color: #94A3B8;'>Marca los equipos que confirmaron asistencia por WhatsApp para este Sábado 30:</small>", unsafe_allow_html=True)
+            st.markdown("<small style='color: #94A3B8;'>Marca los equipos que confirmaron asistencia por WhatsApp para este Sábado:</small>", unsafe_allow_html=True)
             
             lista_equipos_ordenada = sorted(list(equipos_map.values()))
             equipos_disponibles = []
@@ -343,7 +334,6 @@ with tab_admin:
                     if st.checkbox(eq_nombre, key=f"chk_{eq_nombre}"):
                         equipos_disponibles.append(eq_nombre)
             
-            # Inicializamos memoria persistente de la cola y de los errores
             if "partidos_propuestos" not in st.session_state:
                 st.session_state.partidos_propuestos = []
             if "error_partido" not in st.session_state:
@@ -360,21 +350,15 @@ with tab_admin:
                     return
                     
                 espacio_ocupado = any(p["cancha"] == cancha and p["hora"] == hora for p in st.session_state.partidos_propuestos)
-                cancha_1_7pm_llena = any(p["cancha"] == "Cancha 1" and p["hora"] == "7:00 PM" for p in st.session_state.partidos_propuestos)
                 
                 if espacio_ocupado:
                     st.session_state.error_partido = f"❌ Inconsistencia: El espacio {cancha} a las {hora} ya está ocupado en este rol."
                     return
                     
-                if cancha == "Cancha 2" and hora == "7:00 PM" and not cancha_1_7pm_llena:
-                    st.session_state.error_partido = "⚠️ La Cancha 2 a las 7:00 PM es bajo demanda. Primero debes asignar el juego de las 7:00 PM en la Cancha 1."
-                    return
-                    
-                # Si pasa el control de la mesa, sumamos a la cola de forma aislada y limpia
                 st.session_state.error_partido = None
                 st.session_state.partidos_propuestos.append({
-                    "jornada": 2,
-                    "fecha": "2026-05-30",
+                    "jornada": 3,
+                    "fecha": "2026-06-06",
                     "hora": hora,
                     "cancha": cancha,
                     "local": local_eq,
@@ -400,9 +384,8 @@ with tab_admin:
             with col_can:
                 cancha_sel = st.selectbox("Cancha de Juego", ["Cancha 1", "Cancha 2"])
             with col_hor:
-                hora_sel = st.selectbox("Horario de Juego", ["7:00 PM", "8:00 PM", "9:00 PM"])
+                hora_sel = st.selectbox("Horario de Juego", ["8:00 PM", "9:00 PM"])
                 
-            # Enlace seguro al callback extractor
             st.button(
                 "Validar e Incorporar Juego al Rol Semanal",
                 on_click=callback_validar_y_agregar,
@@ -413,7 +396,7 @@ with tab_admin:
                 st.error(st.session_state.error_partido)
 
             # ------------------------------------------
-            # 3. MUESTRA LA COLA Y SUBE A SUPABASE (CON REEMPLAZO AUTOMÁTICO)
+            # 3. MUESTRA LA COLA Y SUBE A SUPABASE
             # ------------------------------------------
             if st.session_state.partidos_propuestos:
                 st.markdown("---")
@@ -425,11 +408,11 @@ with tab_admin:
                 if st.button("🗑️ Limpiar Cola de Partidos"):
                     st.session_state.partidos_propuestos = []
                     st.session_state.error_partido = None
-                    st.rerun()
+                    st.st.rerun()
 
                 st.markdown("---")
                 
-                if st.button("🚀 ENVIAR ROL DE JORNADA 2 A PRODUCCIÓN", type="primary"):
+                if st.button("🚀 ENVIAR ROL DE JORNADA 3 A PRODUCCIÓN", type="primary"):
                     with st.spinner("Actualizando rol en Supabase de forma segura..."):
                         try:
                             nombre_a_id = {v: k for k, v in equipos_map.items()}
@@ -448,10 +431,10 @@ with tab_admin:
                                     "perdedor_id": None
                                 })
                             
-                            # PROTECCIÓN DE HISTORIAL: Borra el rol anterior de la J2 que NO se ha jugado aún
+                            # PROTECCIÓN DE HISTORIAL: Borra el rol anterior de la J3 que NO se ha jugado aún
                             supabase.table("partidos")\
                                     .delete()\
-                                    .eq("jornada", 2)\
+                                    .eq("jornada", 3)\
                                     .is_("ganador_id", "null")\
                                     .execute()
                             
@@ -475,4 +458,3 @@ with tab_admin:
             
     except KeyError:
         st.error("❌ **Error de Configuración:** No se encontró la variable 'ADMIN_PASSWORD' en los Secrets de Streamlit.")
-        st.info("Asegúrate de tener la línea `ADMIN_PASSWORD = \"tu_clave\"` en tu archivo local `.streamlit/secrets.toml` o en las configuraciones de la web.")
