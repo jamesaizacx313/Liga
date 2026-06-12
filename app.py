@@ -20,12 +20,14 @@ if MODO_PAUSA:
     st.stop()
 
 # ==========================================
-# 🎛️ CONTROL DE JORNADA ACTIVA Y FECHAS
+# 🎛️ CONTROL DE JORNADA ACTIVA Y FECHAS AUTOMÁTICO
 # ==========================================
-JORNADA_ACTIVA = 3  # Apunta de forma nativa a la jornada de este próximo sábado
-
 # Fecha de inicio del torneo: Jornada 1 = Sábado 23 de Mayo de 2026
 FECHA_BASE_TORNEO = datetime(2026, 5, 23)
+
+# 🚀 CÁLCULO AUTOMÁTICO: Sumar 5 días hace que el ciclo cambie exactamente cada Lunes
+fecha_pivote = datetime.now() + timedelta(days=5)
+JORNADA_ACTIVA = max(1, ((fecha_pivote - FECHA_BASE_TORNEO).days // 7) + 1)
 
 def obtener_fecha_sabado(numero_jornada):
     """Calcula dinámicamente la fecha del sábado correspondiente a la jornada."""
@@ -41,6 +43,12 @@ def obtener_fecha_sabado(numero_jornada):
     dia = fecha_calculada.day
     mes = meses_espanol[fecha_calculada.month]
     return f"{dia} {mes}"
+
+def obtener_fecha_iso(numero_jornada):
+    """Devuelve la fecha en formato YYYY-MM-DD para la base de datos."""
+    semanas_a_sumar = int(numero_jornada) - 1
+    fecha_calculada = FECHA_BASE_TORNEO + timedelta(weeks=semanas_a_sumar)
+    return fecha_calculada.strftime("%Y-%m-%d")
 
 # ==========================================
 # 🛑 BLINDAJE DE INTERFAZ: OCULTAR TODO LO NATIVO
@@ -164,12 +172,15 @@ with tab_publico:
     col1, col2 = st.columns(2)
     with col1:
         jornadas_db = list(set([p["jornada"] for p in partidos_data]))
-        if 3 not in jornadas_db:
-            jornadas_db.append(3)
+        # 🚀 Si la jornada calculada dinámicamente no existe en la base de datos, la forzamos en la lista
+        if JORNADA_ACTIVA not in jornadas_db:
+            jornadas_db.append(JORNADA_ACTIVA)
         jornadas = sorted(jornadas_db)
         
         opciones_j = ["📅 TODAS LAS JORNADAS"] + [f"📅 JORNADA {j}" for j in jornadas]
-        default_index = opciones_j.index("📅 JORNADA 3") if "📅 JORNADA 3" in opciones_j else 1
+        # 🚀 Apunta dinámicamente al string de la jornada en curso
+        string_jornada_activa = f"📅 JORNADA {JORNADA_ACTIVA}"
+        default_index = opciones_j.index(string_jornada_activa) if string_jornada_activa in opciones_j else 1
         
         jornada_sel = st.selectbox("j_f", opciones_j, index=default_index, label_visibility="collapsed")
         jornada_val = "TODAS" if "TODAS" in jornada_sel else int(jornada_sel.split("JORNADA ")[1])
@@ -226,6 +237,7 @@ with tab_publico:
         partidos = [p for p in partidos_data if p["jornada"] == int(j_num)]
         fecha_correspondiente = obtener_fecha_sabado(j_num)
         
+        # 🚀 Si no hay partidos en la base de datos para esta jornada, muestra el aviso limpio de espera
         if not partidos:
             return f"""
             <div class="jornada-container jornada-preliminar" style="text-align: center; padding: 35px 20px;">
@@ -233,7 +245,7 @@ with tab_publico:
                     <div class="jornada-title">JORNADA {j_num} — {fecha_correspondiente.upper()}</div>
                     <div class="jornada-status status-preliminar" style="font-size: 13px; margin-top: 14px; letter-spacing:1px;">⏳ EN ESPERA DE CONFIRMACIÓN</div>
                 </div>
-                <p style="color: #64748B; font-size: 12px; margin-top: 10px; font-style: italic;">Los delegados están confirmando asistencia y horarios disponibles para las canchas.</p>
+                <p style="color: #64748B; font-size: 12px; margin-top: 12px; font-style: italic;">Los delegados están confirmando asistencia y horarios disponibles para las canchas.</p>
             </div>"""
 
         tiene_lagos = any("lagos" in equipos_map.get(p["equipo_visita_id"], "").lower() for p in partidos)
@@ -319,10 +331,11 @@ with tab_admin:
                         if vis: balances[vis]["juegos_7pm"] += 1
             
             # ------------------------------------------
-            # 1. ASISTENCIA SEMANAL
+            # 1. ASISTENCIA SEMANAL (Sincronizada con JORNADA_ACTIVA)
             # ------------------------------------------
             st.subheader("1. Confirmación de Equipos Disponibles")
-            st.markdown("<small style='color: #94A3B8;'>Marca los equipos que confirmaron asistencia por WhatsApp para este Sábado:</small>", unsafe_allow_html=True)
+            fecha_proximo_sabado = obtener_fecha_sabado(JORNADA_ACTIVA)
+            st.markdown(f"<small style='color: #94A3B8;'>Marca los equipos que confirmaron asistencia por WhatsApp para este Sábado {fecha_proximo_sabado}:</small>", unsafe_allow_html=True)
             
             lista_equipos_ordenada = sorted(list(equipos_map.values()))
             equipos_disponibles = []
@@ -342,7 +355,7 @@ with tab_admin:
             st.markdown("---")
             
             # ------------------------------------------
-            # 🧠 FUNCIÓN MAESTRA DE VALIDACIÓN (CALLBACK)
+            # 🧠 FUNCIÓN MAESTRA DE VALIDACIÓN (DInámica)
             # ------------------------------------------
             def callback_validar_y_agregar(local_eq, visita_eq, arbitro_eq, cancha, hora):
                 if local_eq == "—" or visita_eq == "—" or arbitro_eq == "—":
@@ -357,8 +370,8 @@ with tab_admin:
                     
                 st.session_state.error_partido = None
                 st.session_state.partidos_propuestos.append({
-                    "jornada": 3,
-                    "fecha": "2026-06-06",
+                    "jornada": JORNADA_ACTIVA,
+                    "fecha": obtener_fecha_iso(JORNADA_ACTIVA),
                     "hora": hora,
                     "cancha": cancha,
                     "local": local_eq,
@@ -384,7 +397,8 @@ with tab_admin:
             with col_can:
                 cancha_sel = st.selectbox("Cancha de Juego", ["Cancha 1", "Cancha 2"])
             with col_hor:
-                hora_sel = st.selectbox("Horario de Juego", ["8:00 PM", "9:00 PM"])
+                # 🚀 Habilitadas las 3 ventanas de tiempo de forma nativa por demanda
+                hora_sel = st.selectbox("Horario de Juego", ["7:00 PM", "8:00 PM", "9:00 PM"])
                 
             st.button(
                 "Validar e Incorporar Juego al Rol Semanal",
@@ -396,7 +410,7 @@ with tab_admin:
                 st.error(st.session_state.error_partido)
 
             # ------------------------------------------
-            # 3. MUESTRA LA COLA Y SUBE A SUPABASE
+            # 3. MUESTRA LA COLA Y SUBE A SUPABASE (DINÁMICO JORNADA ACTIVA)
             # ------------------------------------------
             if st.session_state.partidos_propuestos:
                 st.markdown("---")
@@ -408,11 +422,11 @@ with tab_admin:
                 if st.button("🗑️ Limpiar Cola de Partidos"):
                     st.session_state.partidos_propuestos = []
                     st.session_state.error_partido = None
-                    st.st.rerun()
+                    st.rerun()
 
                 st.markdown("---")
                 
-                if st.button("🚀 ENVIAR ROL DE JORNADA 3 A PRODUCCIÓN", type="primary"):
+                if st.button(f"🚀 ENVIAR ROL DE JORNADA {JORNADA_ACTIVA} A PRODUCCIÓN", type="primary"):
                     with st.spinner("Actualizando rol en Supabase de forma segura..."):
                         try:
                             nombre_a_id = {v: k for k, v in equipos_map.items()}
@@ -431,10 +445,10 @@ with tab_admin:
                                     "perdedor_id": None
                                 })
                             
-                            # PROTECCIÓN DE HISTORIAL: Borra el rol anterior de la J3 que NO se ha jugado aún
+                            # PROTECCIÓN DE HISTORIAL AUTOMATIZADA
                             supabase.table("partidos")\
                                     .delete()\
-                                    .eq("jornada", 3)\
+                                    .eq("jornada", JORNADA_ACTIVA)\
                                     .is_("ganador_id", "null")\
                                     .execute()
                             
