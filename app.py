@@ -136,6 +136,17 @@ CSS_HOJA_ESTILOS = """
   .jornada-preliminar { border: 1px dashed #EAB308 !important; box-shadow: 0 10px 30px rgba(234, 179, 8, 0.03) !important; }
   .status-preliminar { color: #EAB308 !important; font-weight: 800 !important; }
 
+  /* 📊 NUEVOS ESTILOS PARA LA MATRIZ DE RESULTADOS */
+  .matrix-wrapper { width: 100%; overflow-x: auto; margin-top: 15px; border-radius: 12px; border: 1px solid #131B2E; }
+  .matrix-table { width: 100%; border-collapse: collapse; background-color: #060B14; font-size: 11px; text-align: center; }
+  .matrix-table th, .matrix-table td { padding: 10px 8px; border: 1px solid #131B2E; white-space: nowrap; }
+  .matrix-table th { background-color: #131B2E; color: #94A3B8; font-weight: 800; text-transform: uppercase; }
+  .matrix-team-header { background-color: #131B2E !important; color: #FFFFFF; font-weight: 800; text-align: left; position: sticky; left: 0; }
+  .cell-diagonal { background-color: rgba(255, 107, 53, 0.25) !important; color: #FF6B35; font-weight: bold; }
+  .cell-ganado { background-color: rgba(46, 204, 113, 0.15) !important; color: #2ECC71; font-weight: 800; text-transform: uppercase; }
+  .cell-perdido { background-color: rgba(231, 76, 60, 0.15) !important; color: #E74C3C; font-weight: 800; text-transform: uppercase; }
+  .cell-vacia { color: #475569; font-style: italic; }
+
   @media (max-width: 550px) {
     .cancha-headers { display: none; }
     .match-row { flex-direction: column; align-items: stretch; gap: 4px; background-color: rgba(19, 27, 46, 0.3); padding: 10px; border-radius: 14px; border: 1px solid rgba(35, 45, 66, 0.4); }
@@ -288,6 +299,49 @@ with tab_publico:
             <div class="rows-container">{bloques}</div>
         </div>"""
 
+    # 🚀 NUEVA FUNCIÓN: CONSTRUCTORA AUTOMÁTICA DE LA MATRIZ DE ENFRENTAMIENTOS
+    def generar_html_matriz_resultados():
+        """Construye la matriz cruzada de resultados en base al historial real de la DB."""
+        nombres_equipos = sorted(list(equipos_map.values()))
+        historial_cruces = {eq: {opp: "" for opp in nombres_equipos} for eq in nombres_equipos}
+        
+        for p in partidos_data:
+            if p.get("ganador_id") is not None:
+                loc = equipos_map.get(p["equipo_local_id"])
+                vis = equipos_map.get(p["equipo_visita_id"])
+                ganador = equipos_map.get(p["ganador_id"])
+                
+                if loc and vis:
+                    if ganador == loc:
+                        historial_cruces[loc][vis] = "GANADO"
+                        historial_cruces[vis][loc] = "PERDIDO"
+                    else:
+                        historial_cruces[loc][vis] = "PERDIDO"
+                        historial_cruces[vis][loc] = "GANADO"
+
+        html = '<div class="matrix-wrapper"><table class="matrix-table"><thead><tr><th></th>'
+        for eq in nombres_equipos:
+            html += f'<th>{eq[:8]}.</th>'  # Truncado estético para pantallas pequeñas
+        html += '</tr></thead><tbody>'
+        
+        for eq_fila in nombres_equipos:
+            html += f'<tr><td class="matrix-team-header">{eq_fila}</td>'
+            for eq_col in nombres_equipos:
+                if eq_fila == eq_col:
+                    html += '<td class="cell-diagonal">❌</td>'
+                else:
+                    res = historial_cruces[eq_fila][eq_col]
+                    if res == "GANADO":
+                        html += '<td class="cell-ganado">Ganó</td>'
+                    elif res == "PERDIDO":
+                        html += '<td class="cell-perdido">Perdió</td>'
+                    else:
+                        html += '<td class="cell-vacia">—</td>'
+            html += '</tr>'
+            
+        html += '</tbody></table></div>'
+        return html
+
     pizarra = f'<div class="pizarra-body">{CSS_HOJA_ESTILOS}'
     if jornada_val == "TODAS":
         for j in jornadas: pizarra += generar_html_jornada(j)
@@ -299,6 +353,19 @@ with tab_publico:
     pizarra += '</div>'
 
     components.html(pizarra, height=h_c, scrolling=True)
+
+    # 🚀 NUEVO MÓDULO INTERACTIVO DE USUARIO: EXPANDER DE LA MATRIZ DE RESULTADOS
+    with st.expander("📊 VER MATRIZ DE ENFRENTAMIENTOS Y RESULTADOS"):
+        html_matriz = f"""
+        <div class="pizarra-body">
+            {CSS_HOJA_ESTILOS}
+            <div style="text-align:center; margin-bottom:10px;">
+                <span style="color:#94A3B8; font-size:12px;">Desliza horizontalmente para ver todos los cruces y resultados históricos del torneo</span>
+            </div>
+            {generar_html_matriz_resultados()}
+        </div>
+        """
+        components.html(html_matriz, height=380, scrolling=True)
 
 
 # ==========================================
