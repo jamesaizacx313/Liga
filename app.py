@@ -66,6 +66,7 @@ st.markdown("""
         }
         .block-container {
             padding-top: 1rem !important;
+            max-width: 95% !important; /* Abre el contenedor para visualización horizontal extendida */
         }
     </style>
 """, unsafe_allow_html=True)
@@ -136,16 +137,16 @@ CSS_HOJA_ESTILOS = """
   .jornada-preliminar { border: 1px dashed #EAB308 !important; box-shadow: 0 10px 30px rgba(234, 179, 8, 0.03) !important; }
   .status-preliminar { color: #EAB308 !important; font-weight: 800 !important; }
 
-  /* 📊 NUEVOS ESTILOS PARA LA MATRIZ DE RESULTADOS */
-  .matrix-wrapper { width: 100%; overflow-x: auto; margin-top: 15px; border-radius: 12px; border: 1px solid #131B2E; }
+  /* 📊 ESTILOS PREMIUM PARA LA MATRIZ DE RESULTADOS EXTENDIDA */
+  .matrix-wrapper { width: 100%; overflow-x: auto; border-radius: 16px; border: 1px solid #131B2E; box-shadow: 0 10px 30px rgba(0,0,0,0.35); }
   .matrix-table { width: 100%; border-collapse: collapse; background-color: #060B14; font-size: 11px; text-align: center; }
-  .matrix-table th, .matrix-table td { padding: 10px 8px; border: 1px solid #131B2E; white-space: nowrap; }
-  .matrix-table th { background-color: #131B2E; color: #94A3B8; font-weight: 800; text-transform: uppercase; }
-  .matrix-team-header { background-color: #131B2E !important; color: #FFFFFF; font-weight: 800; text-align: left; position: sticky; left: 0; }
-  .cell-diagonal { background-color: rgba(255, 107, 53, 0.25) !important; color: #FF6B35; font-weight: bold; }
+  .matrix-table th, .matrix-table td { padding: 12px 10px; border: 1px solid #131B2E; white-space: nowrap; }
+  .matrix-table th { background-color: #131B2E; color: #94A3B8; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; }
+  .matrix-team-header { background-color: #131B2E !important; color: #FFFFFF; font-weight: 800; text-align: left; position: sticky; left: 0; font-size: 12px; }
+  .cell-diagonal { background-color: rgba(255, 107, 53, 0.12) !important; color: #FF6B35; font-weight: bold; }
   .cell-ganado { background-color: rgba(46, 204, 113, 0.15) !important; color: #2ECC71; font-weight: 800; text-transform: uppercase; }
   .cell-perdido { background-color: rgba(231, 76, 60, 0.15) !important; color: #E74C3C; font-weight: 800; text-transform: uppercase; }
-  .cell-vacia { color: #475569; font-style: italic; }
+  .cell-vacia { color: #475569; font-style: italic; font-size: 13px; }
 
   @media (max-width: 550px) {
     .cancha-headers { display: none; }
@@ -175,197 +176,202 @@ HEADER_HTML = f"""
 tab_publico, tab_admin = st.tabs(["🏐 ROL Y RESULTADOS", "🔒 GENERADOR DE ROL"])
 
 # ==========================================
-# 👥 PESTAÑA 1: VISTA PÚBLICA DE JUGADORES
+# 👥 PESTAÑA 1: VISTA PÚBLICA DE JUGADORES (WIDESCREEN)
 # ==========================================
 with tab_publico:
     st.markdown(HEADER_HTML, unsafe_allow_html=True)
     
-    col1, col2 = st.columns(2)
-    with col1:
-        jornadas_db = list(set([p["jornada"] for p in partidos_data]))
-        # 🚀 Si la jornada calculada dinámicamente no existe en la base de datos, la forzamos en la lista
-        if JORNADA_ACTIVA not in jornadas_db:
-            jornadas_db.append(JORNADA_ACTIVA)
-        jornadas = sorted(jornadas_db)
-        
-        opciones_j = ["📅 TODAS LAS JORNADAS"] + [f"📅 JORNADA {j}" for j in jornadas]
-        # 🚀 Apunta dinámicamente al string de la jornada en curso
-        string_jornada_activa = f"📅 JORNADA {JORNADA_ACTIVA}"
-        default_index = opciones_j.index(string_jornada_activa) if string_jornada_activa in opciones_j else 1
-        
-        jornada_sel = st.selectbox("j_f", opciones_j, index=default_index, label_visibility="collapsed")
-        jornada_val = "TODAS" if "TODAS" in jornada_sel else int(jornada_sel.split("JORNADA ")[1])
-
-    with col2:
-        opciones_e = ["🔍 TODOS LOS EQUIPOS"] + sorted(list(equipos_map.values()))
-        equipo_sel = st.selectbox("e_f", opciones_e, index=0, label_visibility="collapsed")
-        equipo_val = "VER TODO" if "TODOS" in equipo_sel else equipo_sel
-
-    def obtener_html_tarjeta(partido, eq_filtro, cancha_label):
-        if not partido:
-            return f"""
-            <div class="card-closed">
-                <div style="display: flex; flex-direction: column; width: 100%;">
-                    <span class="cancha-badge">{cancha_label}</span>
-                    <span style="text-align: center; width: 100%;">🌙 Cerrado</span>
-                </div>
-            </div>"""
-        
-        loc = equipos_map.get(partido["equipo_local_id"])
-        vis = equipos_map.get(partido["equipo_visita_id"])
-        arb = equipos_map.get(partido["equipo_arbitro_id"], "Sin Árbitro")
-        
-        juega = (loc == eq_filtro or vis == eq_filtro) and eq_filtro != "VER TODO"
-        pita = (arb == eq_filtro) and eq_filtro != "VER TODO"
-        
-        clase_card = "card-juega" if juega else ("card-pita" if pita else "card-regular")
-        clase_vs = "vs-juega" if juega else "vs-regular"
-        
-        html_arb = f'<span class="ref-active">{WHISTLE_SVG} PITA: {arb.upper()}</span>' if (arb == eq_filtro and eq_filtro != "VER TODO") else f'{WHISTLE_SVG} Pita: <span style="color: #94A3B8;">{arb}</span>'
-        lagos_icon = CAR_SVG if "lagos" in vis.lower() else ""
-
-        if partido.get("ganador_id") is not None:
-            if partido["ganador_id"] == partido["equipo_local_id"]:
-                loc = f"👑 <span style='color: #FF6B35; font-weight:900;'>{loc}</span>"
-                vis = f"<span style='opacity: 0.35; font-weight:500;'>{vis}</span>"
-            elif partido["ganador_id"] == partido["equipo_visita_id"]:
-                loc = f"<span style='opacity: 0.35; font-weight:500;'>{loc}</span>"
-                vis = f"👑 <span style='color: #FF6B35; font-weight:900;'>{vis}</span>{lagos_icon}"
-
-        return f"""
-        <div class="match-card {clase_card}">
-            <span class="cancha-badge">{cancha_label}</span>
-            <div class="teams-line">
-                <div class="team-name team-left">{loc}</div>
-                <div class="vs-badge {clase_vs}">VS</div>
-                <div class="team-name team-right">{vis}</div>
-            </div>
-            <div class="ref-line">{html_arb}</div>
-        </div>
-        """
-
-    def generar_html_jornada(j_num):
-        partidos = [p for p in partidos_data if p["jornada"] == int(j_num)]
-        fecha_correspondiente = obtener_fecha_sabado(j_num)
-        
-        # 🚀 Si no hay partidos en la base de datos para esta jornada, muestra el aviso limpio de espera
-        if not partidos:
-            return f"""
-            <div class="jornada-container jornada-preliminar" style="text-align: center; padding: 35px 20px;">
-                <div class="jornada-header" style="border:none; padding:0; margin:0;">
-                    <div class="jornada-title">JORNADA {j_num} — {fecha_correspondiente.upper()}</div>
-                    <div class="jornada-status status-preliminar" style="font-size: 13px; margin-top: 14px; letter-spacing:1px;">⏳ EN ESPERA DE CONFIRMACIÓN</div>
-                </div>
-                <p style="color: #64748B; font-size: 12px; margin-top: 12px; font-style: italic;">Los delegados están confirmando asistencia y horarios disponibles para las canchas.</p>
-            </div>"""
-
-        tiene_lagos = any("lagos" in equipos_map.get(p["equipo_visita_id"], "").lower() for p in partidos)
-        
-        if int(j_num) > JORNADA_ACTIVA:
-            estatus = "⏳ ROL PRELIMINAR: Sujeto a modificaciones"
-            clase_contenedor, clase_status = "jornada-container jornada-preliminar", "jornada-status status-preliminar"
-        else:
-            estatus = "⚡ JORNADA ESPECIAL: Lagos de visita" if tiene_lagos else "🏠 OPERACIÓN REGULAR"
-            clase_contenedor, clase_status = "jornada-container", "jornada-status"
-        
-        bloques = ""
-        for h in ["7:00 PM", "8:00 PM", "9:00 PM"]:
-            p_hora = [p for p in partidos if p["hora"] == h]
-            p_c1 = next((p for p in p_hora if p["cancha"] == "Cancha 1"), None)
-            p_c2 = next((p for p in p_hora if p["cancha"] == "Cancha 2"), None)
-            if h == "7:00 PM" and not p_c1 and not p_c2: continue
-            if h == "9:00 PM" and not p_c1 and not p_c2: continue
+    # 🚀 Estructura de distribución horizontal maestra
+    panel_izquierdo, panel_derecho = st.columns([1, 1.25])
+    
+    with panel_izquierdo:
+        st.markdown("<h4 style='color: #FFFFFF; margin-bottom: 12px; font-weight: 800;'>📆 ROL DE JUEGOS</h4>", unsafe_allow_html=True)
+        col_j, col_e = st.columns(2)
+        with col_j:
+            jornadas_db = list(set([p["jornada"] for p in partidos_data]))
+            if JORNADA_ACTIVA not in jornadas_db:
+                jornadas_db.append(JORNADA_ACTIVA)
+            jornadas = sorted(jornadas_db)
             
-            bloques += f"""
-            <div class="match-row">
-                <div class="time-block">🕒 {h.replace(' PM', '')}</div>
-                <div class="cards-wrapper">
-                    {obtener_html_tarjeta(p_c1, equipo_val, "Cancha 1")}
-                    {obtener_html_tarjeta(p_c2, equipo_val, "Cancha 2")}
-                </div>
-            </div>"""
+            opciones_j = ["📅 TODAS LAS JORNADAS"] + [f"📅 JORNADA {j}" for j in jornadas]
+            string_jornada_activa = f"📅 JORNADA {JORNADA_ACTIVA}"
+            default_index = opciones_j.index(string_jornada_activa) if string_jornada_activa in opciones_j else 1
             
-        return f"""
-        <div class="{clase_contenedor}">
-            <div class="jornada-header">
-                <div class="jornada-title">JORNADA {j_num} — {fecha_correspondiente.upper()}</div>
-                <div class="{clase_status}">{estatus}</div>
-            </div>
-            <div class="cancha-headers">
-                <div class="cancha-header-space"></div>
-                <div class="cancha-title">Cancha 1</div>
-                <div class="cancha-title">Cancha 2</div>
-            </div>
-            <div class="rows-container">{bloques}</div>
-        </div>"""
+            jornada_sel = st.selectbox("j_f", opciones_j, index=default_index, label_visibility="collapsed")
+            jornada_val = "TODAS" if "TODAS" in jornada_sel else int(jornada_sel.split("JORNADA ")[1])
 
-    # 🚀 NUEVA FUNCIÓN: CONSTRUCTORA AUTOMÁTICA DE LA MATRIZ DE ENFRENTAMIENTOS
-    def generar_html_matriz_resultados():
-        """Construye la matriz cruzada de resultados en base al historial real de la DB."""
-        nombres_equipos = sorted(list(equipos_map.values()))
-        historial_cruces = {eq: {opp: "" for opp in nombres_equipos} for eq in nombres_equipos}
-        
-        for p in partidos_data:
-            if p.get("ganador_id") is not None:
-                loc = equipos_map.get(p["equipo_local_id"])
-                vis = equipos_map.get(p["equipo_visita_id"])
-                ganador = equipos_map.get(p["ganador_id"])
+        with col_e:
+            opciones_e = ["🔍 TODOS LOS EQUIPOS"] + sorted(list(equipos_map.values()))
+            equipo_sel = st.selectbox("e_f", opciones_e, index=0, label_visibility="collapsed")
+            equipo_val = "VER TODO" if "TODOS" in equipo_sel else equipo_sel
+
+        def obtener_html_tarjeta(partido, eq_filtro, cancha_label):
+            if not partido:
+                return f"""
+                <div class="card-closed">
+                    <div style="display: flex; flex-direction: column; width: 100%;">
+                        <span class="cancha-badge">{cancha_label}</span>
+                        <span style="text-align: center; width: 100%;">🌙 Cerrado</span>
+                    </div>
+                </div>"""
+            
+            loc = equipos_map.get(partido["equipo_local_id"])
+            vis = equipos_map.get(partido["equipo_visita_id"])
+            arb = equipos_map.get(partido["equipo_arbitro_id"], "Sin Árbitro")
+            
+            juega = (loc == eq_filtro or vis == eq_filtro) and eq_filtro != "VER TODO"
+            pita = (arb == eq_filtro) and eq_filtro != "VER TODO"
+            
+            clase_card = "card-juega" if juega else ("card-pita" if pita else "card-regular")
+            clase_vs = "vs-juega" if juega else "vs-regular"
+            
+            html_arb = f'<span class="ref-active">{WHISTLE_SVG} PITA: {arb.upper()}</span>' if (arb == eq_filtro and eq_filtro != "VER TODO") else f'{WHISTLE_SVG} Pita: <span style="color: #94A3B8;">{arb}</span>'
+            lagos_icon = CAR_SVG if "lagos" in vis.lower() else ""
+
+            if partido.get("ganador_id") is not None:
+                if partido["ganador_id"] == partido["equipo_local_id"]:
+                    loc = f"👑 <span style='color: #FF6B35; font-weight:900;'>{loc}</span>"
+                    vis = f"<span style='opacity: 0.35; font-weight:500;'>{vis}</span>"
+                elif partido["ganador_id"] == partido["equipo_visita_id"]:
+                    loc = f"<span style='opacity: 0.35; font-weight:500;'>{loc}</span>"
+                    vis = f"👑 <span style='color: #FF6B35; font-weight:900;'>{vis}</span>{lagos_icon}"
+
+            return f"""
+            <div class="match-card {clase_card}">
+                <span class="cancha-badge">{cancha_label}</span>
+                <div class="teams-line">
+                    <div class="team-name team-left">{loc}</div>
+                    <div class="vs-badge {clase_vs}">VS</div>
+                    <div class="team-name team-right">{vis}</div>
+                </div>
+                <div class="ref-line">{html_arb}</div>
+            </div>
+            """
+
+        def generar_html_jornada(j_num):
+            partidos = [p for p in partidos_data if p["jornada"] == int(j_num)]
+            fecha_correspondiente = obtener_fecha_sabado(j_num)
+            
+            if not partidos:
+                return f"""
+                <div class="jornada-container jornada-preliminar" style="text-align: center; padding: 35px 20px;">
+                    <div class="jornada-header" style="border:none; padding:0; margin:0;">
+                        <div class="jornada-title">JORNADA {j_num} — {fecha_correspondiente.upper()}</div>
+                        <div class="jornada-status status-preliminar" style="font-size: 13px; margin-top: 14px; letter-spacing:1px;">⏳ EN ESPERA DE CONFIRMACIÓN</div>
+                    </div>
+                    <p style="color: #64748B; font-size: 12px; margin-top: 12px; font-style: italic;">Los delegados están confirmando asistencia.</p>
+                </div>"""
+
+            tiene_lagos = any("lagos" in equipos_map.get(p["equipo_visita_id"], "").lower() for p in partidos)
+            
+            if int(j_num) > JORNADA_ACTIVA:
+                estatus = "⏳ ROL PRELIMINAR: Sujeto a modificaciones"
+                clase_contenedor, clase_status = "jornada-container jornada-preliminar", "jornada-status status-preliminar"
+            else:
+                estatus = "⚡ JORNADA ESPECIAL: Lagos de visita" if tiene_lagos else "🏠 OPERACIÓN REGULAR"
+                clase_contenedor, clase_status = "jornada-container", "jornada-status"
+            
+            bloques = ""
+            for h in ["7:00 PM", "8:00 PM", "9:00 PM"]:
+                p_hora = [p for p in partidos if p["hora"] == h]
+                p_c1 = next((p for p in p_hora if p["cancha"] == "Cancha 1"), None)
+                p_c2 = next((p for p in p_hora if p["cancha"] == "Cancha 2"), None)
+                if h == "7:00 PM" and not p_c1 and not p_c2: continue
+                if h == "9:00 PM" and not p_c1 and not p_c2: continue
                 
-                if loc and vis:
-                    if ganador == loc:
-                        historial_cruces[loc][vis] = "GANADO"
-                        historial_cruces[vis][loc] = "PERDIDO"
-                    else:
-                        historial_cruces[loc][vis] = "PERDIDO"
-                        historial_cruces[vis][loc] = "GANADO"
+                bloques += f"""
+                <div class="match-row">
+                    <div class="time-block">🕒 {h.replace(' PM', '')}</div>
+                    <div class="cards-wrapper">
+                        {obtener_html_tarjeta(p_c1, equipo_val, "Cancha 1")}
+                        {obtener_html_tarjeta(p_c2, equipo_val, "Cancha 2")}
+                    </div>
+                </div>"""
+                
+            return f"""
+            <div class="{clase_contenedor}">
+                <div class="jornada-header">
+                    <div class="jornada-title">JORNADA {j_num} — {fecha_correspondiente.upper()}</div>
+                    <div class="{clase_status}">{estatus}</div>
+                </div>
+                <div class="cancha-headers">
+                    <div class="cancha-header-space"></div>
+                    <div class="cancha-title">Cancha 1</div>
+                    <div class="cancha-title">Cancha 2</div>
+                </div>
+                <div class="rows-container">{bloques}</div>
+            </div>"""
 
-        html = '<div class="matrix-wrapper"><table class="matrix-table"><thead><tr><th></th>'
-        for eq in nombres_equipos:
-            html += f'<th>{eq[:8]}.</th>'  # Truncado estético para pantallas pequeñas
-        html += '</tr></thead><tbody>'
+        pizarra = f'<div class="pizarra-body">{CSS_HOJA_ESTILOS}'
+        if jornada_val == "TODAS":
+            for j in jornadas: pizarra += generar_html_jornada(j)
+            h_c = 2800
+        else:
+            pizarra += generar_html_jornada(jornada_val)
+            partidos_existentes = [p for p in partidos_data if p["jornada"] == jornada_val]
+            h_c = 540 if partidos_existentes else 240
+        pizarra += '</div>'
+
+        components.html(pizarra, height=h_c, scrolling=True)
+
+    with panel_derecho:
+        st.markdown("<h4 style='color: #FFFFFF; margin-bottom: 12px; font-weight: 800;'>📊 MATRIZ ENFRENTAMIENTOS DE LA SEGUNDA VUELTA</h4>", unsafe_allow_html=True)
         
-        for eq_fila in nombres_equipos:
-            html += f'<tr><td class="matrix-team-header">{eq_fila}</td>'
-            for eq_col in nombres_equipos:
-                if eq_fila == eq_col:
-                    html += '<td class="cell-diagonal">❌</td>'
-                else:
-                    res = historial_cruces[eq_fila][eq_col]
-                    if res == "GANADO":
-                        html += '<td class="cell-ganado">Ganó</td>'
-                    elif res == "PERDIDO":
-                        html += '<td class="cell-perdido">Perdió</td>'
-                    else:
-                        html += '<td class="cell-vacia">—</td>'
-            html += '</tr>'
+        def generar_html_matriz_resultados():
+            """Construye la matriz cruzada de resultados en base al historial real de la DB."""
+            nombres_equipos = sorted(list(equipos_map.values()))
+            historial_cruces = {eq: {opp: "" for opp in nombres_equipos} for eq in nombres_equipos}
             
-        html += '</tbody></table></div>'
-        return html
+            for p in partidos_data:
+                if p.get("ganador_id") is not None:
+                    loc = equipos_map.get(p["equipo_local_id"])
+                    vis = equipos_map.get(p["equipo_visita_id"])
+                    ganador = equipos_map.get(p["ganador_id"])
+                    
+                    if loc and vis:
+                        if ganador == loc:
+                            historial_cruces[loc][vis] = "GANADO"
+                            historial_cruces[vis][loc] = "PERDIDO"
+                        else:
+                            historial_cruces[loc][vis] = "PERDIDO"
+                            historial_cruces[vis][loc] = "GANADO"
 
-    pizarra = f'<div class="pizarra-body">{CSS_HOJA_ESTILOS}'
-    if jornada_val == "TODAS":
-        for j in jornadas: pizarra += generar_html_jornada(j)
-        h_c = 2800
-    else:
-        pizarra += generar_html_jornada(jornada_val)
-        partidos_existentes = [p for p in partidos_data if p["jornada"] == jornada_val]
-        h_c = 540 if partidos_existentes else 200
-    pizarra += '</div>'
+            html = '<div class="matrix-wrapper"><table class="matrix-table"><thead><tr><th></th>'
+            for eq in nombres_equipos:
+                # Truncado dinámico del header para máxima limpieza en horizontal
+                header_corto = eq[:8] + '.' if len(eq) > 8 else eq
+                html += f'<th>{header_corto}</th>'
+            html += '</tr></thead><tbody>'
+            
+            for eq_fila in nombres_equipos:
+                html += f'<tr><td class="matrix-team-header">{eq_fila}</td>'
+                for eq_col in nombres_equipos:
+                    if eq_fila == eq_col:
+                        html += '<td class="cell-diagonal">❌</td>'
+                    else:
+                        res = historial_cruces[eq_fila][eq_col]
+                        if res == "GANADO":
+                            html += '<td class="cell-ganado">Ganó</td>'
+                        elif res == "PERDIDO":
+                            html += '<td class="cell-perdido">Perdió</td>'
+                        else:
+                            html += '<td class="cell-vacia">—</td>'
+                html += '</tr>'
+                
+            html += '</tbody></table></div>'
+            return html
 
-    components.html(pizarra, height=h_c, scrolling=True)
-
-    # 🚀 NUEVO MÓDULO INTERACTIVO DE USUARIO: EXPANDER DE LA MATRIZ DE RESULTADOS
-    with st.expander("📊 VER MATRIZ DE ENFRENTAMIENTOS Y RESULTADOS"):
-        html_matriz = f"""
+        html_matriz_embed = f"""
         <div class="pizarra-body">
             {CSS_HOJA_ESTILOS}
-            <div style="text-align:center; margin-bottom:10px;">
-                <span style="color:#94A3B8; font-size:12px;">Desliza horizontalmente para ver todos los cruces y resultados históricos del torneo</span>
+            <div style="text-align:left; margin-bottom:10px;">
+                <span style="color:#94A3B8; font-size:11px; font-style: italic;">💡 Desliza el dedo o el mouse en horizontal sobre la tabla para navegar por todos los equipos.</span>
             </div>
             {generar_html_matriz_resultados()}
         </div>
         """
-        components.html(html_matriz, height=380, scrolling=True)
+        # Se ajusta la altura nativa para empatar estéticamente con el contenedor izquierdo
+        components.html(html_matriz_embed, height=h_c + 20 if jornada_val != "TODAS" else 620, scrolling=True)
 
 
 # ==========================================
@@ -422,7 +428,7 @@ with tab_admin:
             st.markdown("---")
             
             # ------------------------------------------
-            # 🧠 FUNCIÓN MAESTRA DE VALIDACIÓN (DInámica)
+            # 🧠 FUNCIÓN MAESTRA DE VALIDACIÓN (Dinámica)
             # ------------------------------------------
             def callback_validar_y_agregar(local_eq, visita_eq, arbitro_eq, cancha, hora):
                 if local_eq == "—" or visita_eq == "—" or arbitro_eq == "—":
@@ -464,7 +470,6 @@ with tab_admin:
             with col_can:
                 cancha_sel = st.selectbox("Cancha de Juego", ["Cancha 1", "Cancha 2"])
             with col_hor:
-                # 🚀 Habilitadas las 3 ventanas de tiempo de forma nativa por demanda
                 hora_sel = st.selectbox("Horario de Juego", ["7:00 PM", "8:00 PM", "9:00 PM"])
                 
             st.button(
