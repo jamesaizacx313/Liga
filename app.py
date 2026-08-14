@@ -22,36 +22,29 @@ if MODO_PAUSA:
 # ==========================================
 # 🎛️ CONTROL DE JORNADA ACTIVA Y FECHAS AUTOMÁTICO
 # ==========================================
-# Fecha de inicio del torneo: Jornada 1 = Sábado 23 de Mayo de 2026
 FECHA_BASE_TORNEO = datetime(2026, 5, 23)
 
-# 🚀 CÁLCULO AUTOMÁTICO: Sumar 5 días hace que el ciclo cambie exactamente cada Lunes
+# CÁLCULO AUTOMÁTICO
 fecha_pivote = datetime.now() + timedelta(days=5)
 JORNADA_ACTIVA = max(1, ((fecha_pivote - FECHA_BASE_TORNEO).days // 7) + 1)
 
 def obtener_fecha_sabado(numero_jornada):
-    """Calcula dinámicamente la fecha del sábado correspondiente a la jornada."""
     semanas_a_sumar = int(numero_jornada) - 1
     fecha_calculada = FECHA_BASE_TORNEO + timedelta(weeks=semanas_a_sumar)
-    
     meses_espanol = {
         1: "Enero", 2: "Febrero", 3: "Marzo", 4: "Abril",
         5: "Mayo", 6: "Junio", 7: "Julio", 8: "Agosto",
         9: "Septiembre", 10: "Octubre", 11: "Noviembre", 12: "Diciembre"
     }
-    
-    dia = fecha_calculada.day
-    mes = meses_espanol[fecha_calculada.month]
-    return f"{dia} {mes}"
+    return f"{fecha_calculada.day} {meses_espanol[fecha_calculada.month]}"
 
 def obtener_fecha_iso(numero_jornada):
-    """Devuelve la fecha en formato YYYY-MM-DD para la base de datos."""
     semanas_a_sumar = int(numero_jornada) - 1
     fecha_calculada = FECHA_BASE_TORNEO + timedelta(weeks=semanas_a_sumar)
     return fecha_calculada.strftime("%Y-%m-%d")
 
 # ==========================================
-# 🛑 BLINDAJE DE INTERFAZ: OCULTAR TODO LO NATIVO
+# 🛑 BLINDAJE DE INTERFAZ
 # ==========================================
 st.markdown("""
     <style>
@@ -66,12 +59,11 @@ st.markdown("""
         }
         .block-container {
             padding-top: 1rem !important;
-            max-width: 96% !important; /* Maximiza la apertura horizontal de la pantalla */
+            max-width: 96% !important;
         }
     </style>
 """, unsafe_allow_html=True)
 
-# Conexión segura a Supabase usando los Secrets de Streamlit
 @st.cache_resource
 def init_supabase():
     url = st.secrets["SUPABASE_URL"]
@@ -80,7 +72,6 @@ def init_supabase():
 
 supabase = init_supabase()
 
-# Descarga de datos optimizada con caché automática de 5 minutos (TTL = 300s)
 @st.cache_data(ttl=300)
 def cargar_datos_torneo():
     res_eq = supabase.table("equipos").select("id, nombre").execute()
@@ -95,7 +86,7 @@ except Exception as e:
     st.stop()
 
 # ==========================================
-# 📌 ASSETS GRÁFICOS VECTORIALES (SVG INLINE)
+# 📌 ASSETS GRÁFICOS VECTORIALES
 # ==========================================
 BALON_WEB_IMG = '<img src="https://img.icons8.com/color/96/volleyball.png" width="22" height="22" style="vertical-align: middle; margin-right: 8px; display: inline-block; filter: drop-shadow(0px 2px 4px rgba(0,0,0,0.15));"/>'
 WHISTLE_SVG = '<svg viewBox="0 0 24 24" width="13" height="13" style="fill: currentColor; vertical-align: middle; margin-right: 6px; display: inline-block;"><path d="M12 3a7 7 0 0 0-6.93 6H2v5h3.07a7 7 0 0 0 11.24 3.73l2.82 2.83 2.12-2.12-2.83-2.82A7 7 0 0 0 12 3zm0 12a5 5 0 1 1 5-5 5 5 0 0 1-5 5z"/></svg>'
@@ -116,7 +107,9 @@ CSS_HOJA_ESTILOS = """
   .match-row { display: flex; align-items: center; gap: 12px; width: 100%; }
   .time-block { width: 70px; background-color: #131B2E; border: 1px solid #232D42; text-align: center; padding: 10px 0; border-radius: 10px; font-weight: 800; font-size: 12px; color: #FF6B35; flex-shrink: 0; }
   .cards-wrapper { display: flex; gap: 12px; flex: 1; min-width: 0; }
-  .match-card { flex: 1; border-radius: 12px; padding: 14px 12px; display: flex; flex-direction: column; justify-content: space-between; min-height: 76px; box-sizing: border-box; min-width: 0; }
+  
+  /* ESTILOS DE LA TARJETA (Añadido position: relative para la etiqueta V2) */
+  .match-card { position: relative; flex: 1; border-radius: 12px; padding: 14px 12px; display: flex; flex-direction: column; justify-content: space-between; min-height: 76px; box-sizing: border-box; min-width: 0; }
   .cancha-badge { display: none; }
   
   .card-closed { flex: 1; min-width: 0; background-color: #0B0F19; border: 1px dashed #232D42; border-radius: 12px; display: flex; justify-content: center; align-items: center; color: #475569; font-size: 12px; font-style: italic; min-height: 76px; box-sizing: border-box; }
@@ -133,11 +126,15 @@ CSS_HOJA_ESTILOS = """
   .vs-regular { background-color: #232D42; color: #94A3B8; }
   .ref-line { margin-top: 8px; text-align: center; font-size: 11px; color: #64748B; font-weight: 600; border-top: 1px solid rgba(255,255,255,0.04); padding-top: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .ref-active { color: #2ECC71; font-weight: 800; }
+
+  /* 🏷️ ESTILOS DEL BADGE DE VUELTA */
+  .vuelta-badge { position: absolute; bottom: 8px; right: 10px; font-size: 9px; font-weight: 900; padding: 2px 6px; border-radius: 4px; letter-spacing: 0.5px; z-index: 2; }
+  .v2-badge { background-color: rgba(255, 107, 53, 0.15); color: #FF6B35; border: 1px dashed rgba(255, 107, 53, 0.4); }
   
   .jornada-preliminar { border: 1px dashed #EAB308 !important; box-shadow: 0 10px 30px rgba(234, 179, 8, 0.03) !important; }
   .status-preliminar { color: #EAB308 !important; font-weight: 800 !important; }
 
-  /* 📊 ESTILOS PREMIUM PARA LA SECCIÓN DE LA MATRIZ DE RESULTADOS */
+  /* MATRIZ */
   .matrix-wrapper { width: 100%; overflow-x: auto; border-radius: 16px; border: 1px solid #131B2E; box-shadow: 0 10px 30px rgba(0,0,0,0.35); margin-top: 10px; }
   .matrix-table { width: 100%; border-collapse: collapse; background-color: #060B14; font-size: 12px; text-align: center; }
   .matrix-table th, .matrix-table td { padding: 14px 12px; border: 1px solid #131B2E; white-space: nowrap; }
@@ -171,12 +168,12 @@ HEADER_HTML = f"""
 """
 
 # ==========================================
-# 🎫 SEPARACIÓN DE PESTAÑAS (TRIPLE PANE)
+# 🎫 SEPARACIÓN DE PESTAÑAS
 # ==========================================
 tab_publico, tab_matriz, tab_admin = st.tabs(["🏐 ROL Y RESULTADOS", "📊 MATRIZ DE ENFRENTAMIENTOS", "🔒 GENERADOR DE ROL"])
 
 # ==========================================
-# 👥 PESTAÑA 1: VISTA PÚBLICA DEL ROL SEMANAL
+# 👥 PESTAÑA 1: VISTA PÚBLICA
 # ==========================================
 with tab_publico:
     st.markdown(HEADER_HTML, unsafe_allow_html=True)
@@ -214,6 +211,14 @@ with tab_publico:
         vis = equipos_map.get(partido["equipo_visita_id"])
         arb = equipos_map.get(partido["equipo_arbitro_id"], "Sin Árbitro")
         
+        # Extracción y diseño de la VUELTA
+        vuelta_num = partido.get("vuelta", 1)
+        if vuelta_num is None: vuelta_num = 1
+        
+        html_vuelta = ""
+        if int(vuelta_num) >= 2:
+            html_vuelta = f'<div class="vuelta-badge v2-badge">V{int(vuelta_num)}</div>'
+        
         juega = (loc == eq_filtro or vis == eq_filtro) and eq_filtro != "VER TODO"
         pita = (arb == eq_filtro) and eq_filtro != "VER TODO"
         
@@ -233,6 +238,7 @@ with tab_publico:
 
         return f"""
         <div class="match-card {clase_card}">
+            {html_vuelta}
             <span class="cancha-badge">{cancha_label}</span>
             <div class="teams-line">
                 <div class="team-name team-left">{loc}</div>
@@ -311,7 +317,7 @@ with tab_publico:
 
 
 # ==========================================
-# 📊 PESTAÑA 2: SECCIÓN DEDICADA A LA MATRIZ DE RESULTADOS (FULLSCREEN)
+# 📊 PESTAÑA 2: MATRIZ
 # ==========================================
 with tab_matriz:
     st.markdown(HEADER_HTML, unsafe_allow_html=True)
@@ -319,7 +325,6 @@ with tab_matriz:
     st.markdown("<p style='color: #94A3B8; font-size: 13px; text-align: center; margin-bottom: 20px;'>Control automático de partidos disputados. Desliza horizontalmente si estás en móvil.</p>", unsafe_allow_html=True)
     
     def generar_html_matriz_resultados():
-        """Construye de forma dinámica la matriz de resultados cruzados."""
         nombres_equipos = sorted(list(equipos_map.values()))
         historial_cruces = {eq: {opp: "" for opp in nombres_equipos} for eq in nombres_equipos}
         
@@ -367,12 +372,11 @@ with tab_matriz:
         {generar_html_matriz_resultados()}
     </div>
     """
-    # Altura extendida para abarcar la pantalla completa horizontal sin recortar filas
     components.html(html_matriz_embed, height=620, scrolling=True)
 
 
 # ==========================================
-# 🔒 PESTAÑA 3: MÓDULO ADMINISTRADOR SEGURO
+# 🔒 PESTAÑA 3: ADMINISTRADOR
 # ==========================================
 with tab_admin:
     st.markdown("### ⚙️ Panel de Control Operacional")
@@ -386,23 +390,7 @@ with tab_admin:
             st.success("🔓 Autenticación exitosa. Bienvenido Operador.")
             st.markdown("---")
             
-            balances = {eq_nombre: {"partidos": 0, "arbitrajes": 0, "juegos_7pm": 0} for eq_nombre in equipos_map.values()}
-            for p in partidos_data:
-                if p.get("ganador_id") is not None:
-                    loc = equipos_map.get(p["equipo_local_id"])
-                    vis = equipos_map.get(p["equipo_visita_id"])
-                    arb = equipos_map.get(p["equipo_arbitro_id"])
-                    hora = p["hora"]
-                    if loc: balances[loc]["partidos"] += 1
-                    if vis: balances[vis]["partidos"] += 1
-                    if arb: balances[arb]["arbitrajes"] += 1
-                    if hora == "7:00 PM":
-                        if loc: balances[loc]["juegos_7pm"] += 1
-                        if vis: balances[vis]["juegos_7pm"] += 1
-            
-            # ------------------------------------------
-            # 1. ASISTENCIA SEMANAL (Sincronizada con JORNADA_ACTIVA)
-            # ------------------------------------------
+            # 1. ASISTENCIA SEMANAL
             st.subheader("1. Confirmación de Equipos Disponibles")
             fecha_proximo_sabado = obtener_fecha_sabado(JORNADA_ACTIVA)
             st.markdown(f"<small style='color: #94A3B8;'>Marca los equipos que confirmaron asistencia por WhatsApp para este Sábado {fecha_proximo_sabado}:</small>", unsafe_allow_html=True)
@@ -424,10 +412,8 @@ with tab_admin:
                 
             st.markdown("---")
             
-            # ------------------------------------------
-            # 🧠 FUNCIÓN MAESTRA DE VALIDACIÓN (Dinámica)
-            # ------------------------------------------
-            def callback_validar_y_agregar(local_eq, visita_eq, arbitro_eq, cancha, hora):
+            # 🧠 FUNCIÓN MAESTRA DE VALIDACIÓN (Añadido "vuelta")
+            def callback_validar_y_agregar(local_eq, visita_eq, arbitro_eq, cancha, hora, vuelta):
                 if local_eq == "—" or visita_eq == "—" or arbitro_eq == "—":
                     st.session_state.error_partido = "❌ Error: Debes seleccionar Local, Visitante y Árbitro."
                     return
@@ -446,12 +432,11 @@ with tab_admin:
                     "cancha": cancha,
                     "local": local_eq,
                     "visita": visita_eq,
-                    "arbitro": arbitro_eq
+                    "arbitro": arbitro_eq,
+                    "vuelta": int(vuelta)
                 })
 
-            # ------------------------------------------
-            # 2. INTERFAZ DEL ASISTENTE DE EMPAREJAMIENTO
-            # ------------------------------------------
+            # 2. INTERFAZ DEL ASISTENTE
             st.subheader("2. Programar Partido del Sábado")
             col_l, col_v, col_a = st.columns(3)
             with col_l:
@@ -463,30 +448,30 @@ with tab_admin:
                 opciones_a = [e for e in equipos_disponibles if e != local and e != visita]
                 arbitro = st.selectbox("Equipo Árbitro", ["—"] + opciones_a)
                 
-            col_can, col_hor = st.columns(2)
+            col_can, col_hor, col_vuel = st.columns([2, 2, 1])
             with col_can:
                 cancha_sel = st.selectbox("Cancha de Juego", ["Cancha 1", "Cancha 2"])
             with col_hor:
                 hora_sel = st.selectbox("Horario de Juego", ["7:00 PM", "8:00 PM", "9:00 PM"])
+            with col_vuel:
+                vuelta_sel = st.number_input("Vuelta", min_value=1, max_value=5, value=1, step=1)
                 
             st.button(
                 "Validar e Incorporar Juego al Rol Semanal",
                 on_click=callback_validar_y_agregar,
-                args=(local, visita, arbitro, cancha_sel, hora_sel)
+                args=(local, visita, arbitro, cancha_sel, hora_sel, vuelta_sel)
             )
             
             if st.session_state.error_partido:
                 st.error(st.session_state.error_partido)
 
-            # ------------------------------------------
-            # 3. MUESTRA LA COLA Y SUBE A SUPABASE (DINÁMICO JORNADA ACTIVA)
-            # ------------------------------------------
+            # 3. MUESTRA LA COLA Y SUBE A SUPABASE
             if st.session_state.partidos_propuestos:
                 st.markdown("---")
                 st.subheader("📋 Vista Previa del Nuevo Rol Semanal")
                 
                 for idx, juego in enumerate(st.session_state.partidos_propuestos):
-                    st.text(f"🔹 Juego {idx+1}: [{juego['cancha']} - {juego['hora']}] {juego['local']} vs {juego['visita']} (Pita: {juego['arbitro']})")
+                    st.text(f"🔹 Juego {idx+1}: [{juego['cancha']} - {juego['hora']}] {juego['local']} vs {juego['visita']} (Pita: {juego['arbitro']}) | Vuelta {juego['vuelta']}")
                 
                 if st.button("🗑️ Limpiar Cola de Partidos"):
                     st.session_state.partidos_propuestos = []
@@ -511,20 +496,18 @@ with tab_admin:
                                     "equipo_visita_id": nombre_a_id.get(p["visita"]),
                                     "equipo_arbitro_id": nombre_a_id.get(p["arbitro"]),
                                     "ganador_id": None,
-                                    "perdedor_id": None
+                                    "perdedor_id": None,
+                                    "vuelta": p["vuelta"] # Empaquetando la vuelta a la DB
                                 })
                             
-                            # PROTECCIÓN DE HISTORIAL AUTOMATIZADA
                             supabase.table("partidos")\
                                     .delete()\
                                     .eq("jornada", JORNADA_ACTIVA)\
                                     .is_("ganador_id", "null")\
                                     .execute()
                             
-                            # Inserción del nuevo rol modificado
                             supabase.table("partidos").insert(datos_supabase).execute()
                             
-                            # Limpieza forzada de caché para actualización instantánea en la web
                             st.cache_data.clear()
                             
                             st.balloons()
