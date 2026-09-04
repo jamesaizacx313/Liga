@@ -2,11 +2,13 @@ import streamlit as st
 import streamlit.components.v1 as components
 from supabase import create_client, Client
 from datetime import datetime, timedelta
+from html import escape
 
 # Configuración inicial de la página móvil/web
 st.set_page_config(
-    page_icon="https://img.icons8.com/color/96/volleyball.png",
-    layout="centered"
+    page_title="Liga La Chona",
+    page_icon="🏐",
+    layout="wide"
 )
 
 # ==========================================
@@ -72,7 +74,7 @@ def init_supabase():
 
 supabase = init_supabase()
 
-@st.cache_data(ttl=300)
+@st.cache_data(ttl=60)
 def cargar_datos_torneo():
     res_eq = supabase.table("equipos").select("id, nombre").execute()
     equipos_map = {eq["id"]: eq["nombre"] for eq in res_eq.data}
@@ -144,6 +146,23 @@ CSS_HOJA_ESTILOS = """
   .cell-ganado { background-color: rgba(46, 204, 113, 0.16) !important; color: #2ECC71; font-weight: 800; text-transform: uppercase; }
   .cell-perdido { background-color: rgba(231, 76, 60, 0.16) !important; color: #E74C3C; font-weight: 800; text-transform: uppercase; }
   .cell-vacia { color: #475569; font-style: italic; font-size: 14px; }
+  .section-card { background-color: #060B14; border: 1px solid #131B2E; border-radius: 16px; padding: 18px; margin: 14px 0 26px; box-shadow: 0 10px 30px rgba(0,0,0,0.25); }
+  .section-title { color: #FFFFFF; text-align: center; font-size: 19px; font-weight: 900; margin: 0 0 4px; }
+  .section-help { color: #94A3B8; text-align: center; font-size: 12px; margin: 0 0 16px; }
+  .ranking-wrapper { width: 100%; overflow-x: auto; border-radius: 12px; border: 1px solid #1E293B; }
+  .ranking-table { width: 100%; min-width: 560px; border-collapse: collapse; background-color: #060B14; font-size: 13px; }
+  .ranking-table th, .ranking-table td { padding: 12px 10px; border-bottom: 1px solid #131B2E; text-align: center; }
+  .ranking-table th { background-color: #131B2E; color: #94A3B8; font-size: 11px; text-transform: uppercase; letter-spacing: .5px; }
+  .ranking-table td { color: #E2E8F0; }
+  .ranking-table .rank-position { color: #FF6B35; font-weight: 900; font-size: 15px; }
+  .ranking-table .rank-team { text-align: left; color: #FFFFFF; font-weight: 800; position: sticky; left: 0; background-color: #060B14; }
+  .ranking-table .rank-wins { color: #2ECC71; font-weight: 900; }
+  .ranking-table .rank-losses { color: #E74C3C; font-weight: 800; }
+  .matrix-table { min-width: 760px; }
+  .matrix-table th { position: sticky; top: 0; z-index: 2; }
+  .matrix-team-header { z-index: 3; }
+  .matrix-legend { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 12px; color: #94A3B8; font-size: 11px; }
+  .legend-chip { padding: 4px 8px; border-radius: 999px; border: 1px solid #1E293B; }
 
   @media (max-width: 550px) {
     .cancha-headers { display: none; }
@@ -152,6 +171,9 @@ CSS_HOJA_ESTILOS = """
     .cards-wrapper { flex-direction: column; gap: 8px; width: 100%; }
     .cancha-badge { display: inline-block; font-size: 9px; font-weight: 800; text-transform: uppercase; background-color: rgba(74, 144, 226, 0.15); color: #4A90E2; padding: 2px 6px; border-radius: 4px; margin-bottom: 6px; width: fit-content; }
     .team-name { font-size: 12px; }
+    .section-card { padding: 12px 8px; border-radius: 12px; }
+    .matrix-table th, .matrix-table td { padding: 10px 8px; font-size: 11px; }
+    .matrix-team-header { max-width: 132px; overflow: hidden; text-overflow: ellipsis; }
   }
 </style>
 """
@@ -170,7 +192,7 @@ HEADER_HTML = f"""
 # ==========================================
 # 🎫 SEPARACIÓN DE PESTAÑAS
 # ==========================================
-tab_publico, tab_matriz, tab_admin = st.tabs(["🏐 ROL Y RESULTADOS", "📊 MATRIZ DE ENFRENTAMIENTOS", "🔒 GENERADOR DE ROL"])
+tab_publico, tab_clasificacion = st.tabs(["🏐 ROL Y RESULTADOS", "🏆 CLASIFICACIÓN"])
 
 # ==========================================
 # 👥 PESTAÑA 1: VISTA PÚBLICA
@@ -317,19 +339,71 @@ with tab_publico:
 
 
 # ==========================================
-# 📊 PESTAÑA 2: MATRIZ
+# 🏆 PESTAÑA 2: CLASIFICACIÓN Y MATRICES
 # ==========================================
-with tab_matriz:
+with tab_clasificacion:
     st.markdown(HEADER_HTML, unsafe_allow_html=True)
-    st.markdown("<h3 style='color: #FFFFFF; text-align: center; margin-bottom: 4px; font-weight: 800;'>📊 MATRIZ DE RESULTADOS (SEGUNDA VUELTA)</h3>", unsafe_allow_html=True)
-    st.markdown("<p style='color: #94A3B8; font-size: 13px; text-align: center; margin-bottom: 20px;'>Control automático de partidos disputados. Desliza horizontalmente si estás en móvil.</p>", unsafe_allow_html=True)
-    
-    def generar_html_matriz_resultados():
+
+    def generar_html_ranking():
+        estadisticas = {
+            equipo_id: {"nombre": nombre, "jugados": 0, "ganados": 0, "perdidos": 0}
+            for equipo_id, nombre in equipos_map.items()
+        }
+
+        for partido in partidos_data:
+            ganador_id = partido.get("ganador_id")
+            if ganador_id is None:
+                continue
+
+            local_id = partido.get("equipo_local_id")
+            visita_id = partido.get("equipo_visita_id")
+            perdedor_id = partido.get("perdedor_id")
+            if perdedor_id is None:
+                perdedor_id = visita_id if ganador_id == local_id else local_id
+
+            if ganador_id in estadisticas and perdedor_id in estadisticas:
+                for equipo_id in (ganador_id, perdedor_id):
+                    estadisticas[equipo_id]["jugados"] += 1
+                estadisticas[ganador_id]["ganados"] += 1
+                estadisticas[perdedor_id]["perdidos"] += 1
+
+        ranking = sorted(
+            estadisticas.values(),
+            key=lambda item: (-item["ganados"], item["perdidos"], item["nombre"].casefold())
+        )
+
+        filas = ""
+        for posicion, equipo in enumerate(ranking, start=1):
+            efectividad = (equipo["ganados"] / equipo["jugados"] * 100) if equipo["jugados"] else 0
+            filas += f"""
+            <tr>
+                <td class="rank-position">{posicion}</td>
+                <td class="rank-team">{escape(equipo['nombre'])}</td>
+                <td>{equipo['jugados']}</td>
+                <td class="rank-wins">{equipo['ganados']}</td>
+                <td class="rank-losses">{equipo['perdidos']}</td>
+                <td>{efectividad:.0f}%</td>
+            </tr>"""
+
+        return f"""
+        <div class="section-card">
+            <h2 class="section-title">🏆 CLASIFICACIÓN GENERAL</h2>
+            <p class="section-help">Solo se contabilizan partidos con resultado oficial.</p>
+            <div class="ranking-wrapper">
+                <table class="ranking-table">
+                    <thead><tr><th>Pos.</th><th style="text-align:left;">Equipo</th><th>PJ</th><th>PG</th><th>PP</th><th>Efect.</th></tr></thead>
+                    <tbody>{filas}</tbody>
+                </table>
+            </div>
+        </div>"""
+
+    def generar_html_matriz_resultados(vuelta):
         nombres_equipos = sorted(list(equipos_map.values()))
         historial_cruces = {eq: {opp: "" for opp in nombres_equipos} for eq in nombres_equipos}
         
         for p in partidos_data:
-            if p.get("ganador_id") is not None:
+            vuelta_partido = p.get("vuelta") or 1
+            if int(vuelta_partido) == vuelta and p.get("ganador_id") is not None:
                 loc = equipos_map.get(p["equipo_local_id"])
                 vis = equipos_map.get(p["equipo_visita_id"])
                 ganador = equipos_map.get(p["ganador_id"])
@@ -342,14 +416,17 @@ with tab_matriz:
                         historial_cruces[loc][vis] = "PERDIDO"
                         historial_cruces[vis][loc] = "GANADO"
 
-        html = '<div class="matrix-wrapper"><table class="matrix-table"><thead><tr><th></th>'
+        html = f'''<div class="section-card">
+        <h2 class="section-title">📊 MATRIZ · VUELTA {vuelta}</h2>
+        <p class="section-help">Resultados entre equipos. En móvil, desliza la tabla horizontalmente.</p>
+        <div class="matrix-wrapper"><table class="matrix-table"><thead><tr><th></th>'''
         for eq in nombres_equipos:
             header_corto = eq[:8] + '.' if len(eq) > 8 else eq
-            html += f'<th>{header_corto}</th>'
+            html += f'<th title="{escape(eq)}">{escape(header_corto)}</th>'
         html += '</tr></thead><tbody>'
         
         for eq_fila in nombres_equipos:
-            html += f'<tr><td class="matrix-team-header">{eq_fila}</td>'
+            html += f'<tr><td class="matrix-team-header">{escape(eq_fila)}</td>'
             for eq_col in nombres_equipos:
                 if eq_fila == eq_col:
                     html += '<td class="cell-diagonal">❌</td>'
@@ -363,164 +440,20 @@ with tab_matriz:
                         html += '<td class="cell-vacia">—</td>'
             html += '</tr>'
             
-        html += '</tbody></table></div>'
+        html += '''</tbody></table></div>
+        <div class="matrix-legend">
+            <span class="legend-chip">🟢 Ganó</span>
+            <span class="legend-chip">🔴 Perdió</span>
+            <span class="legend-chip">— Sin resultado</span>
+        </div></div>'''
         return html
 
     html_matriz_embed = f"""
     <div class="pizarra-body">
         {CSS_HOJA_ESTILOS}
-        {generar_html_matriz_resultados()}
+        {generar_html_ranking()}
+        {generar_html_matriz_resultados(1)}
+        {generar_html_matriz_resultados(2)}
     </div>
     """
-    components.html(html_matriz_embed, height=620, scrolling=True)
-
-
-# ==========================================
-# 🔒 PESTAÑA 3: ADMINISTRADOR
-# ==========================================
-with tab_admin:
-    st.markdown("### ⚙️ Panel de Control Operacional")
-    
-    password_admin = st.text_input("Introduce la clave de acceso de la liga:", type="password")
-    
-    try:
-        clave_correcta = st.secrets["ADMIN_PASSWORD"]
-        
-        if password_admin == clave_correcta:
-            st.success("🔓 Autenticación exitosa. Bienvenido Operador.")
-            st.markdown("---")
-            
-            # 1. ASISTENCIA SEMANAL
-            st.subheader("1. Confirmación de Equipos Disponibles")
-            fecha_proximo_sabado = obtener_fecha_sabado(JORNADA_ACTIVA)
-            st.markdown(f"<small style='color: #94A3B8;'>Marca los equipos que confirmaron asistencia por WhatsApp para este Sábado {fecha_proximo_sabado}:</small>", unsafe_allow_html=True)
-            
-            lista_equipos_ordenada = sorted(list(equipos_map.values()))
-            equipos_disponibles = []
-            
-            cols_asistencia = st.columns(2)
-            for idx, eq_nombre in enumerate(lista_equipos_ordenada):
-                col_actual = cols_asistencia[idx % 2]
-                with col_actual:
-                    if st.checkbox(eq_nombre, key=f"chk_{eq_nombre}"):
-                        equipos_disponibles.append(eq_nombre)
-            
-            if "partidos_propuestos" not in st.session_state:
-                st.session_state.partidos_propuestos = []
-            if "error_partido" not in st.session_state:
-                st.session_state.error_partido = None
-                
-            st.markdown("---")
-            
-            # 🧠 FUNCIÓN MAESTRA DE VALIDACIÓN (Añadido "vuelta")
-            def callback_validar_y_agregar(local_eq, visita_eq, arbitro_eq, cancha, hora, vuelta):
-                if local_eq == "—" or visita_eq == "—" or arbitro_eq == "—":
-                    st.session_state.error_partido = "❌ Error: Debes seleccionar Local, Visitante y Árbitro."
-                    return
-                    
-                espacio_ocupado = any(p["cancha"] == cancha and p["hora"] == hora for p in st.session_state.partidos_propuestos)
-                
-                if espacio_ocupado:
-                    st.session_state.error_partido = f"❌ Inconsistencia: El espacio {cancha} a las {hora} ya está ocupado en este rol."
-                    return
-                    
-                st.session_state.error_partido = None
-                st.session_state.partidos_propuestos.append({
-                    "jornada": JORNADA_ACTIVA,
-                    "fecha": obtener_fecha_iso(JORNADA_ACTIVA),
-                    "hora": hora,
-                    "cancha": cancha,
-                    "local": local_eq,
-                    "visita": visita_eq,
-                    "arbitro": arbitro_eq,
-                    "vuelta": int(vuelta)
-                })
-
-            # 2. INTERFAZ DEL ASISTENTE
-            st.subheader("2. Programar Partido del Sábado")
-            col_l, col_v, col_a = st.columns(3)
-            with col_l:
-                local = st.selectbox("Equipo Local", ["—"] + equipos_disponibles)
-            with col_v:
-                opciones_v = [e for e in equipos_disponibles if e != local]
-                visita = st.selectbox("Equipo Visitante", ["—"] + opciones_v)
-            with col_a:
-                opciones_a = [e for e in equipos_disponibles if e != local and e != visita]
-                arbitro = st.selectbox("Equipo Árbitro", ["—"] + opciones_a)
-                
-            col_can, col_hor, col_vuel = st.columns([2, 2, 1])
-            with col_can:
-                cancha_sel = st.selectbox("Cancha de Juego", ["Cancha 1", "Cancha 2"])
-            with col_hor:
-                hora_sel = st.selectbox("Horario de Juego", ["7:00 PM", "8:00 PM", "9:00 PM"])
-            with col_vuel:
-                vuelta_sel = st.number_input("Vuelta", min_value=1, max_value=5, value=1, step=1)
-                
-            st.button(
-                "Validar e Incorporar Juego al Rol Semanal",
-                on_click=callback_validar_y_agregar,
-                args=(local, visita, arbitro, cancha_sel, hora_sel, vuelta_sel)
-            )
-            
-            if st.session_state.error_partido:
-                st.error(st.session_state.error_partido)
-
-            # 3. MUESTRA LA COLA Y SUBE A SUPABASE
-            if st.session_state.partidos_propuestos:
-                st.markdown("---")
-                st.subheader("📋 Vista Previa del Nuevo Rol Semanal")
-                
-                for idx, juego in enumerate(st.session_state.partidos_propuestos):
-                    st.text(f"🔹 Juego {idx+1}: [{juego['cancha']} - {juego['hora']}] {juego['local']} vs {juego['visita']} (Pita: {juego['arbitro']}) | Vuelta {juego['vuelta']}")
-                
-                if st.button("🗑️ Limpiar Cola de Partidos"):
-                    st.session_state.partidos_propuestos = []
-                    st.session_state.error_partido = None
-                    st.rerun()
-
-                st.markdown("---")
-                
-                if st.button(f"🚀 ENVIAR ROL DE JORNADA {JORNADA_ACTIVA} A PRODUCCIÓN", type="primary"):
-                    with st.spinner("Actualizando rol en Supabase de forma segura..."):
-                        try:
-                            nombre_a_id = {v: k for k, v in equipos_map.items()}
-                            
-                            datos_supabase = []
-                            for p in st.session_state.partidos_propuestos:
-                                datos_supabase.append({
-                                    "jornada": int(p["jornada"]),
-                                    "fecha": p["fecha"],
-                                    "hora": p["hora"],
-                                    "cancha": p["cancha"],
-                                    "equipo_local_id": nombre_a_id.get(p["local"]),
-                                    "equipo_visita_id": nombre_a_id.get(p["visita"]),
-                                    "equipo_arbitro_id": nombre_a_id.get(p["arbitro"]),
-                                    "ganador_id": None,
-                                    "perdedor_id": None,
-                                    "vuelta": p["vuelta"] # Empaquetando la vuelta a la DB
-                                })
-                            
-                            supabase.table("partidos")\
-                                    .delete()\
-                                    .eq("jornada", JORNADA_ACTIVA)\
-                                    .is_("ganador_id", "null")\
-                                    .execute()
-                            
-                            supabase.table("partidos").insert(datos_supabase).execute()
-                            
-                            st.cache_data.clear()
-                            
-                            st.balloons()
-                            st.success("¡Rol publicado exitosamente! Las modificaciones ya están en vivo.")
-                            st.session_state.partidos_propuestos = []
-                            st.session_state.error_partido = None
-                            st.rerun()
-                            
-                        except Exception as error_db:
-                            st.error(f"❌ Error al guardar en la base de datos: {error_db}")
-                            
-        elif password_admin != "":
-            st.error("❌ Clave de administrador incorrecta.")
-            
-    except KeyError:
-        st.error("❌ **Error de Configuración:** No se encontró la variable 'ADMIN_PASSWORD' en los Secrets de Streamlit.")
+    components.html(html_matriz_embed, height=1900, scrolling=True)
