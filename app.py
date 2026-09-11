@@ -381,10 +381,30 @@ def resultado_valido(partido):
 
 
 with tab_resumen:
-    st.markdown(HEADER_HTML, unsafe_allow_html=True)
-    st.subheader("Avance del torneo")
+    st.html("""<style>
+    .resumen-heading {font:700 24px system-ui;color:#f8fafc;margin:12px 0 4px;}
+    .resumen-subtitle {font:13px system-ui;color:#94a3b8;margin:0 0 16px;}
+    .resumen-metrics {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:12px 0;}
+    .resumen-metric {background:#151e2c;border:1px solid #293548;border-radius:12px;padding:12px 10px;color:#cbd5e1;font:12px system-ui;}
+    .resumen-metric strong {display:block;color:#f8fafc;font-size:24px;margin-bottom:4px;}
+    .st-key-resumen_equipos [role="radiogroup"] {display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px!important;}
+    .st-key-resumen_equipos [role="radiogroup"] label {box-sizing:border-box;margin:0!important;min-height:64px;padding:10px!important;border:1px solid #334155;border-radius:12px;background:#151e2c;align-items:center;}
+    .st-key-resumen_equipos [role="radiogroup"] label:has(input:checked) {background:#3b241d;border:2px solid #ff8a5b;padding:9px!important;}
+    .st-key-resumen_equipos [role="radiogroup"] label:focus-within {outline:2px solid #38bdf8;outline-offset:2px;}
+    .st-key-resumen_equipos [role="radiogroup"] label p {font-size:13px;line-height:1.35;overflow-wrap:anywhere;color:#f8fafc;}
+    .st-key-resumen_equipos [role="radiogroup"] label strong {display:inline-block;min-width:20px;text-align:center;border-radius:6px;background:#334155;color:#f8fafc;padding:1px 5px;margin-left:4px;}
+    .st-key-resumen_equipos [role="radiogroup"] label:has(input:checked) strong {background:#ff8a5b;color:#20140e;}
+    .resumen-rivales {font-family:system-ui;color:#f8fafc;border:1px solid #334155;border-radius:14px;overflow:hidden;}
+    .resumen-rivales-heading {background:#151e2c;padding:14px;}
+    .resumen-rivales-heading strong {display:block;font-size:18px;}
+    .resumen-rivales-heading small {display:block;color:#94a3b8;margin-top:5px;}
+    .resumen-rival {padding:12px 14px;border-top:1px solid #293548;}
+    .resumen-rival strong {font-size:14px;font-weight:600;}
+    .resumen-rival small {display:block;font-size:12px;color:#94a3b8;margin-top:4px;line-height:1.5;}
+    </style><h2 class="resumen-heading">Pendientes · Vuelta 2</h2>
+    <p class="resumen-subtitle">Elige un equipo y consulta sus próximos cruces.</p>""")
     # Exclusión visual del resumen; el catálogo y las otras pantallas se conservan.
-    excluidos_resumen = {"lagos", "sub17", "independientes"}
+    excluidos_resumen = {"lagos", "sub17", "independiente", "independientes"}
     equipos_resumen = {
         i: nombre for i, nombre in equipos_map.items()
         if "".join(c for c in nombre.casefold() if c.isalnum()) not in excluidos_resumen
@@ -399,29 +419,16 @@ with tab_resumen:
     cruces_totales = {frozenset(par) for par in combinations(equipos_resumen, 2)}
     cruces_jugados = {frozenset((p["equipo_local_id"], p["equipo_visita_id"])) for p in jugados_segunda}
     cruces_pendientes = cruces_totales - cruces_jugados
-    pendientes_segunda = []
-    for local, visita in combinations(sorted(equipos_resumen, key=lambda i: equipos_resumen[i].casefold()), 2):
-        cruce = frozenset((local, visita))
-        if cruce not in cruces_pendientes:
-            continue
-        programados = [p for p in segunda if frozenset((p.get("equipo_local_id"), p.get("equipo_visita_id"))) == cruce]
-        pendientes_segunda.append(programados[0] if programados else {
-            "equipo_local_id": local, "equipo_visita_id": visita,
-        })
-    for columna, etiqueta, cantidad in zip(
-        st.columns(3),
-        ["Jugados · torneo", "Jugados · Vuelta 2", "Pendientes · Vuelta 2"],
-        [len(jugados), len(jugados_segunda), len(cruces_pendientes)],
-    ):
-        columna.metric(etiqueta, cantidad)
-    st.caption(f"Todos contra todos entre los {len(equipos_resumen)} equipos incluidos en este resumen: un cruce por pareja. Los conteos excluyen a Lagos, Sub 17 e Independientes. Los pendientes incluyen los que aún no tienen fecha; las repeticiones no reducen otros cruces pendientes.")
+    st.html(f'''<div class="resumen-metrics">
+        <div class="resumen-metric"><strong>{len(jugados)}</strong>Jugados · torneo</div>
+        <div class="resumen-metric"><strong>{len(jugados_segunda)}</strong>Jugados · V2</div>
+        <div class="resumen-metric"><strong>{len(cruces_pendientes)}</strong>Pendientes · V2</div>
+    </div>''')
     if cruces_totales:
         st.progress(len(cruces_jugados) / len(cruces_totales),
                     text=f"{len(cruces_jugados)} de {len(cruces_totales)} cruces de Vuelta 2 completados")
     else:
         st.info("Se necesitan al menos dos equipos para calcular los cruces.")
-    st.subheader("Rivales pendientes · Vuelta 2")
-    st.caption("Selecciona un equipo para ver contra quién le falta jugar.")
     equipos_ordenados = sorted(equipos_resumen, key=lambda i: equipos_resumen[i].casefold())
     pendientes_por_equipo = {
         equipo: [rival for rival in equipos_ordenados
@@ -429,33 +436,35 @@ with tab_resumen:
         for equipo in equipos_ordenados
     }
     if equipos_ordenados:
-        lista_equipos, lista_rivales = st.columns([1, 1.5], gap="large")
-        with lista_equipos:
+        lista_equipos, lista_rivales = st.columns([1, 1.2], gap="medium")
+        with lista_equipos, st.container(key="resumen_equipos"):
             seleccionado = st.radio(
-                "Todos los equipos",
+                "Equipos · cruces pendientes",
                 equipos_ordenados,
-                format_func=lambda i: f"{equipos_map[i]} · {len(pendientes_por_equipo[i])} pendientes",
+                format_func=lambda i: f"{equipos_map[i]} **{len(pendientes_por_equipo[i])}**",
                 key="equipo_resumen_v2_filtrado",
             )
         with lista_rivales:
-            st.text(equipos_map[seleccionado])
             rivales = pendientes_por_equipo[seleccionado]
-            st.caption(f"{len(rivales)} rivales pendientes en la segunda vuelta")
-            if not rivales:
-                st.success("¡Ya completó todos sus cruces de la Vuelta 2!")
+            filas_rivales = ""
             for rival in rivales:
                 cruce = frozenset((seleccionado, rival))
                 programados = [p for p in segunda
                                if frozenset((p.get("equipo_local_id"), p.get("equipo_visita_id"))) == cruce]
-                with st.container(border=True):
-                    st.text(equipos_map[rival])
-                    if not programados:
-                        st.caption("Por programar · todavía sin fecha")
-                    for p in programados:
-                        estado = "Programado" if p.get("ganador_id") is None else "Resultado por revisar"
-                        st.caption(f"{estado} · Jornada {p.get('jornada', '—')} · {p.get('fecha') or 'Sin fecha'} · {p.get('hora') or 'Sin hora'} · {p.get('cancha') or 'Sin cancha'}")
+                detalles = []
+                for p in programados:
+                    estado = "Programado" if p.get("ganador_id") is None else "Resultado por revisar"
+                    detalles.append(escape(f"{estado} · J{p.get('jornada', '—')} · {p.get('fecha') or 'Sin fecha'} · {p.get('hora') or 'Sin hora'} · {p.get('cancha') or 'Sin cancha'}"))
+                detalle = "<br>".join(detalles) if detalles else "Sin fecha · por programar"
+                filas_rivales += f'<div class="resumen-rival"><strong>{escape(equipos_map[rival])}</strong><small>{detalle}</small></div>'
+            if not rivales:
+                filas_rivales = '<div class="resumen-rival">✓ Completó todos sus cruces de Vuelta 2.</div>'
+            st.html(f'''<section class="resumen-rivales" aria-label="Rivales pendientes">
+                <div class="resumen-rivales-heading"><strong>{escape(equipos_map[seleccionado])}</strong>
+                <small>{len(rivales)} rivales por jugar · Vuelta 2</small></div>{filas_rivales}</section>''')
     else:
         st.info("Todavía no hay equipos registrados.")
+    st.caption(f"{len(equipos_resumen)} equipos · un cruce por pareja. Incluye cruces sin fecha. Lagos, Sub 17 e Independiente(s) no participan en este resumen.")
 
 
 with tab_clasificacion:
