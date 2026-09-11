@@ -3,6 +3,7 @@ import streamlit.components.v1 as components
 from supabase import create_client, Client
 from datetime import datetime, timedelta
 from html import escape
+from itertools import combinations
 
 # Configuración inicial de la página móvil/web
 st.set_page_config(
@@ -163,6 +164,21 @@ CSS_HOJA_ESTILOS = """
   .matrix-team-header { z-index: 3; }
   .matrix-legend { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 12px; color: #94A3B8; font-size: 11px; }
   .legend-chip { padding: 4px 8px; border-radius: 999px; border: 1px solid #1E293B; }
+  .section-card { font-family: system-ui, sans-serif; }
+  .mobile-matches, .mobile-full-matrix { display: none; }
+  .team-details, .full-matrix { color: #E2E8F0; border: 1px solid #334155; border-radius: 10px; margin: 8px 0; }
+  .team-details summary, .full-matrix summary { padding: 14px 12px; min-height: 44px; box-sizing: border-box; cursor: pointer; font-weight: 700; }
+  .team-details summary:focus-visible, .full-matrix summary:focus-visible { outline: 2px solid #38BDF8; }
+  .rival-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 12px; border-top: 1px solid #334155; font-size: 13px; overflow-wrap: anywhere; }
+  .estado { display: inline-block; font-size: 11px; padding: 4px 6px; border-radius: 5px; margin: 2px 0; }
+  .ganado { color: #86EFAC; background: #143826; }
+  .perdido { color: #FCA5A5; background: #451D25; }
+  .programado { color: #FDE68A; background: #423718; }
+  .sin-programar { color: #CBD5E1; }
+  .matrix-wrapper { max-height: 65vh; overflow: auto; }
+  .matrix-table { border-collapse: separate; border-spacing: 0; }
+  .matrix-table .matrix-team-header { top: auto; z-index: 1; white-space: normal; min-width: 120px; max-width: 180px; }
+  .full-matrix > .section-help { padding: 12px; text-align: left; line-height: 1.8; }
 
   @media (max-width: 550px) {
     .cancha-headers { display: none; }
@@ -174,6 +190,15 @@ CSS_HOJA_ESTILOS = """
     .section-card { padding: 12px 8px; border-radius: 12px; }
     .matrix-table th, .matrix-table td { padding: 10px 8px; font-size: 11px; }
     .matrix-team-header { max-width: 132px; overflow: hidden; text-overflow: ellipsis; }
+    .mobile-matches { display: block; }
+    .mobile-full-matrix { display: block; }
+    .desktop-matrix { display: none; }
+    .ranking-table { min-width: 0; table-layout: fixed; font-size: 11px; }
+    .ranking-table th, .ranking-table td { padding: 10px 3px; overflow-wrap: anywhere; }
+    .ranking-table th:nth-child(2), .ranking-table td:nth-child(2) { width: 34%; }
+    .ranking-table .rank-team { position: static; }
+    .section-title { font-size: 17px; }
+    .match-row { box-sizing: border-box; }
   }
 </style>
 """
@@ -192,7 +217,7 @@ HEADER_HTML = f"""
 # ==========================================
 # 🎫 SEPARACIÓN DE PESTAÑAS
 # ==========================================
-tab_publico, tab_clasificacion = st.tabs(["🏐 ROL Y RESULTADOS", "🏆 CLASIFICACIÓN"])
+tab_publico, tab_resumen, tab_clasificacion = st.tabs(["🏐 ROL", "📈 RESUMEN", "🏆 CLASIFICACIÓN"])
 
 # ==========================================
 # 👥 PESTAÑA 1: VISTA PÚBLICA
@@ -211,12 +236,12 @@ with tab_publico:
         string_jornada_activa = f"📅 JORNADA {JORNADA_ACTIVA}"
         default_index = opciones_j.index(string_jornada_activa) if string_jornada_activa in opciones_j else 1
         
-        jornada_sel = st.selectbox("j_f", opciones_j, index=default_index, label_visibility="collapsed")
+        jornada_sel = st.selectbox("Jornada", opciones_j, index=default_index, filter_mode=None)
         jornada_val = "TODAS" if "TODAS" in jornada_sel else int(jornada_sel.split("JORNADA ")[1])
 
     with col2:
         opciones_e = ["🔍 TODOS LOS EQUIPOS"] + sorted(list(equipos_map.values()))
-        equipo_sel = st.selectbox("e_f", opciones_e, index=0, label_visibility="collapsed")
+        equipo_sel = st.selectbox("Equipo", opciones_e, index=0, filter_mode=None)
         equipo_val = "VER TODO" if "TODOS" in equipo_sel else equipo_sel
 
     def obtener_html_tarjeta(partido, eq_filtro, cancha_label):
@@ -341,6 +366,61 @@ with tab_publico:
 # ==========================================
 # 🏆 PESTAÑA 2: CLASIFICACIÓN Y MATRICES
 # ==========================================
+def vuelta_de(partido):
+    try:
+        return int(partido.get("vuelta") or 1)
+    except (TypeError, ValueError):
+        return None
+
+
+def resultado_valido(partido):
+    local = partido.get("equipo_local_id")
+    visita = partido.get("equipo_visita_id")
+    return (local in equipos_map and visita in equipos_map and local != visita
+            and partido.get("ganador_id") in (local, visita))
+
+
+with tab_resumen:
+    st.markdown(HEADER_HTML, unsafe_allow_html=True)
+    st.subheader("Avance del torneo")
+    jugados = [p for p in partidos_data if resultado_valido(p)]
+    segunda = [p for p in partidos_data if vuelta_de(p) == 2]
+    jugados_segunda = [p for p in segunda if resultado_valido(p)]
+    # Cada pareja cuenta una vez, independientemente de local/visita o repeticiones.
+    cruces_totales = {frozenset(par) for par in combinations(equipos_map, 2)}
+    cruces_jugados = {frozenset((p["equipo_local_id"], p["equipo_visita_id"])) for p in jugados_segunda}
+    cruces_pendientes = cruces_totales - cruces_jugados
+    pendientes_segunda = []
+    for local, visita in combinations(sorted(equipos_map, key=lambda i: equipos_map[i].casefold()), 2):
+        cruce = frozenset((local, visita))
+        if cruce not in cruces_pendientes:
+            continue
+        programados = [p for p in segunda if frozenset((p.get("equipo_local_id"), p.get("equipo_visita_id"))) == cruce]
+        pendientes_segunda.append(programados[0] if programados else {
+            "equipo_local_id": local, "equipo_visita_id": visita,
+        })
+    for columna, etiqueta, cantidad in zip(
+        st.columns(3),
+        ["Jugados · torneo", "Jugados · Vuelta 2", "Pendientes · Vuelta 2"],
+        [len(jugados), len(jugados_segunda), len(cruces_pendientes)],
+    ):
+        columna.metric(etiqueta, cantidad)
+    st.caption(f"Todos contra todos entre los {len(equipos_map)} equipos del catálogo: un cruce por pareja. Los pendientes incluyen los que aún no tienen fecha. Jugados cuenta partidos con resultado válido; las repeticiones no reducen otros cruces pendientes.")
+    if cruces_totales:
+        st.progress(len(cruces_jugados) / len(cruces_totales),
+                    text=f"{len(cruces_jugados)} de {len(cruces_totales)} cruces de Vuelta 2 completados")
+    else:
+        st.info("Se necesitan al menos dos equipos para calcular los cruces.")
+    if pendientes_segunda:
+        st.subheader("Por jugar · Vuelta 2")
+        for p in pendientes_segunda:
+            local = equipos_map.get(p.get("equipo_local_id"), "Equipo por confirmar")
+            visita = equipos_map.get(p.get("equipo_visita_id"), "Equipo por confirmar")
+            with st.container(border=True):
+                st.text(f"{local} vs {visita}")
+                st.caption(f"Jornada {p.get('jornada', '—')} · {p.get('fecha') or 'Sin fecha'} · {p.get('hora') or 'Sin hora'} · {p.get('cancha') or 'Sin cancha'}")
+
+
 with tab_clasificacion:
     st.markdown(HEADER_HTML, unsafe_allow_html=True)
 
@@ -352,14 +432,12 @@ with tab_clasificacion:
 
         for partido in partidos_data:
             ganador_id = partido.get("ganador_id")
-            if ganador_id is None:
+            if not resultado_valido(partido):
                 continue
 
             local_id = partido.get("equipo_local_id")
             visita_id = partido.get("equipo_visita_id")
-            perdedor_id = partido.get("perdedor_id")
-            if perdedor_id is None:
-                perdedor_id = visita_id if ganador_id == local_id else local_id
+            perdedor_id = visita_id if ganador_id == local_id else local_id
 
             if ganador_id in estadisticas and perdedor_id in estadisticas:
                 for equipo_id in (ganador_id, perdedor_id):
@@ -398,62 +476,63 @@ with tab_clasificacion:
         </div>"""
 
     def generar_html_matriz_resultados(vuelta):
-        nombres_equipos = sorted(list(equipos_map.values()))
-        historial_cruces = {eq: {opp: "" for opp in nombres_equipos} for eq in nombres_equipos}
-        
+        ids = sorted(equipos_map, key=lambda i: equipos_map[i].casefold())
+        historial = {i: {j: [] for j in ids if j != i} for i in ids}
         for p in partidos_data:
-            vuelta_partido = p.get("vuelta") or 1
-            if int(vuelta_partido) == vuelta and p.get("ganador_id") is not None:
-                loc = equipos_map.get(p["equipo_local_id"])
-                vis = equipos_map.get(p["equipo_visita_id"])
-                ganador = equipos_map.get(p["ganador_id"])
-                
-                if loc and vis:
-                    if ganador == loc:
-                        historial_cruces[loc][vis] = "GANADO"
-                        historial_cruces[vis][loc] = "PERDIDO"
-                    else:
-                        historial_cruces[loc][vis] = "PERDIDO"
-                        historial_cruces[vis][loc] = "GANADO"
-
-        html = f'''<div class="section-card">
-        <h2 class="section-title">📊 MATRIZ · VUELTA {vuelta}</h2>
-        <p class="section-help">Resultados entre equipos. En móvil, desliza la tabla horizontalmente.</p>
-        <div class="matrix-wrapper"><table class="matrix-table"><thead><tr><th></th>'''
-        for eq in nombres_equipos:
-            header_corto = eq[:8] + '.' if len(eq) > 8 else eq
-            html += f'<th title="{escape(eq)}">{escape(header_corto)}</th>'
-        html += '</tr></thead><tbody>'
-        
-        for eq_fila in nombres_equipos:
-            html += f'<tr><td class="matrix-team-header">{escape(eq_fila)}</td>'
-            for eq_col in nombres_equipos:
-                if eq_fila == eq_col:
-                    html += '<td class="cell-diagonal">❌</td>'
+            if vuelta_de(p) != vuelta:
+                continue
+            local, visita = p.get("equipo_local_id"), p.get("equipo_visita_id")
+            if local not in historial or visita not in historial[local]:
+                continue
+            for equipo, rival in ((local, visita), (visita, local)):
+                if resultado_valido(p):
+                    estado = "Ganó" if p["ganador_id"] == equipo else "Perdió"
                 else:
-                    res = historial_cruces[eq_fila][eq_col]
-                    if res == "GANADO":
-                        html += '<td class="cell-ganado">Ganó</td>'
-                    elif res == "PERDIDO":
-                        html += '<td class="cell-perdido">Perdió</td>'
-                    else:
-                        html += '<td class="cell-vacia">—</td>'
-            html += '</tr>'
-            
-        html += '''</tbody></table></div>
-        <div class="matrix-legend">
-            <span class="legend-chip">🟢 Ganó</span>
-            <span class="legend-chip">🔴 Perdió</span>
-            <span class="legend-chip">— Sin resultado</span>
-        </div></div>'''
-        return html
+                    estado = "Programado" if p.get("ganador_id") is None else "Revisar resultado"
+                historial[equipo][rival].append((estado, p.get("jornada")))
 
-    html_matriz_embed = f"""
-    <div class="pizarra-body">
-        {CSS_HOJA_ESTILOS}
-        {generar_html_ranking()}
-        {generar_html_matriz_resultados(1)}
-        {generar_html_matriz_resultados(2)}
-    </div>
-    """
-    components.html(html_matriz_embed, height=1900, scrolling=True)
+        def celda(equipo, rival):
+            registros = historial[equipo][rival]
+            if not registros:
+                return '<span class="estado sin-programar">Sin programar</span>'
+            etiquetas = []
+            for estado, jornada in registros:
+                clase = {"Ganó": "ganado", "Perdió": "perdido", "Programado": "programado"}.get(estado, "programado")
+                etiquetas.append(f'<span class="estado {clase}">{estado} · J{escape(str(jornada or "—"))}</span>')
+            return "<br>".join(etiquetas)
+
+        tabla = '<div class="matrix-wrapper" role="region" aria-label="Matriz de enfrentamientos" tabindex="0"><table class="matrix-table"><thead><tr><th>Equipo</th>'
+        for numero, equipo in enumerate(ids, 1):
+            tabla += f'<th scope="col" title="{escape(equipos_map[equipo])}">{numero}</th>'
+        tabla += '</tr></thead><tbody>'
+        movil = '<div class="mobile-matches">'
+        for numero, equipo in enumerate(ids, 1):
+            nombre = escape(equipos_map[equipo])
+            tabla += f'<tr><th scope="row" class="matrix-team-header">{numero}. {nombre}</th>'
+            movil += f'<details class="team-details"><summary>{nombre}</summary>'
+            for rival in ids:
+                if rival == equipo:
+                    tabla += '<td class="cell-diagonal">—</td>'
+                    continue
+                contenido = celda(equipo, rival)
+                tabla += f'<td>{contenido}</td>'
+                movil += f'<div class="rival-row"><span>{escape(equipos_map[rival])}</span><div>{contenido}</div></div>'
+            tabla += '</tr>'
+            movil += '</details>'
+        tabla += '</tbody></table></div>'
+        movil += '</div>'
+        clave = " · ".join(f"{n}. {escape(equipos_map[i])}" for n, i in enumerate(ids, 1))
+        return f"""<div class="section-card">
+            <h2 class="section-title">Matriz · Vuelta {vuelta}</h2>
+            <p class="section-help">El resultado se lee desde el equipo de la fila. Cada registro muestra su jornada.</p>
+            {movil}
+            <div class="desktop-matrix">{tabla}<p class="section-help">{clave}</p></div>
+            <details class="full-matrix mobile-full-matrix"><summary>Ver tabla completa · desliza horizontalmente</summary>{tabla}
+            <p class="section-help">{clave}</p></details>
+        </div>"""
+
+    # HTML directo para usar el desplazamiento normal de la página.
+    st.html(CSS_HOJA_ESTILOS)
+    st.html(generar_html_ranking())
+    st.html(generar_html_matriz_resultados(1))
+    st.html(generar_html_matriz_resultados(2))
