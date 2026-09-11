@@ -383,15 +383,24 @@ def resultado_valido(partido):
 with tab_resumen:
     st.markdown(HEADER_HTML, unsafe_allow_html=True)
     st.subheader("Avance del torneo")
-    jugados = [p for p in partidos_data if resultado_valido(p)]
-    segunda = [p for p in partidos_data if vuelta_de(p) == 2]
+    # Exclusión visual del resumen; el catálogo y las otras pantallas se conservan.
+    excluidos_resumen = {"lagos", "sub17", "independientes"}
+    equipos_resumen = {
+        i: nombre for i, nombre in equipos_map.items()
+        if "".join(c for c in nombre.casefold() if c.isalnum()) not in excluidos_resumen
+    }
+    partidos_resumen = [p for p in partidos_data
+                        if p.get("equipo_local_id") in equipos_resumen
+                        and p.get("equipo_visita_id") in equipos_resumen]
+    jugados = [p for p in partidos_resumen if resultado_valido(p)]
+    segunda = [p for p in partidos_resumen if vuelta_de(p) == 2]
     jugados_segunda = [p for p in segunda if resultado_valido(p)]
     # Cada pareja cuenta una vez, independientemente de local/visita o repeticiones.
-    cruces_totales = {frozenset(par) for par in combinations(equipos_map, 2)}
+    cruces_totales = {frozenset(par) for par in combinations(equipos_resumen, 2)}
     cruces_jugados = {frozenset((p["equipo_local_id"], p["equipo_visita_id"])) for p in jugados_segunda}
     cruces_pendientes = cruces_totales - cruces_jugados
     pendientes_segunda = []
-    for local, visita in combinations(sorted(equipos_map, key=lambda i: equipos_map[i].casefold()), 2):
+    for local, visita in combinations(sorted(equipos_resumen, key=lambda i: equipos_resumen[i].casefold()), 2):
         cruce = frozenset((local, visita))
         if cruce not in cruces_pendientes:
             continue
@@ -405,7 +414,7 @@ with tab_resumen:
         [len(jugados), len(jugados_segunda), len(cruces_pendientes)],
     ):
         columna.metric(etiqueta, cantidad)
-    st.caption(f"Todos contra todos entre los {len(equipos_map)} equipos del catálogo: un cruce por pareja. Los pendientes incluyen los que aún no tienen fecha. Jugados cuenta partidos con resultado válido; las repeticiones no reducen otros cruces pendientes.")
+    st.caption(f"Todos contra todos entre los {len(equipos_resumen)} equipos incluidos en este resumen: un cruce por pareja. Los conteos excluyen a Lagos, Sub 17 e Independientes. Los pendientes incluyen los que aún no tienen fecha; las repeticiones no reducen otros cruces pendientes.")
     if cruces_totales:
         st.progress(len(cruces_jugados) / len(cruces_totales),
                     text=f"{len(cruces_jugados)} de {len(cruces_totales)} cruces de Vuelta 2 completados")
@@ -413,7 +422,7 @@ with tab_resumen:
         st.info("Se necesitan al menos dos equipos para calcular los cruces.")
     st.subheader("Rivales pendientes · Vuelta 2")
     st.caption("Selecciona un equipo para ver contra quién le falta jugar.")
-    equipos_ordenados = sorted(equipos_map, key=lambda i: equipos_map[i].casefold())
+    equipos_ordenados = sorted(equipos_resumen, key=lambda i: equipos_resumen[i].casefold())
     pendientes_por_equipo = {
         equipo: [rival for rival in equipos_ordenados
                  if rival != equipo and frozenset((equipo, rival)) in cruces_pendientes]
@@ -426,7 +435,7 @@ with tab_resumen:
                 "Todos los equipos",
                 equipos_ordenados,
                 format_func=lambda i: f"{equipos_map[i]} · {len(pendientes_por_equipo[i])} pendientes",
-                key="equipo_resumen_v2",
+                key="equipo_resumen_v2_filtrado",
             )
         with lista_rivales:
             st.text(equipos_map[seleccionado])
