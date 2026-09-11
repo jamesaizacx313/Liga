@@ -411,14 +411,42 @@ with tab_resumen:
                     text=f"{len(cruces_jugados)} de {len(cruces_totales)} cruces de Vuelta 2 completados")
     else:
         st.info("Se necesitan al menos dos equipos para calcular los cruces.")
-    if pendientes_segunda:
-        st.subheader("Por jugar · Vuelta 2")
-        for p in pendientes_segunda:
-            local = equipos_map.get(p.get("equipo_local_id"), "Equipo por confirmar")
-            visita = equipos_map.get(p.get("equipo_visita_id"), "Equipo por confirmar")
-            with st.container(border=True):
-                st.text(f"{local} vs {visita}")
-                st.caption(f"Jornada {p.get('jornada', '—')} · {p.get('fecha') or 'Sin fecha'} · {p.get('hora') or 'Sin hora'} · {p.get('cancha') or 'Sin cancha'}")
+    st.subheader("Rivales pendientes · Vuelta 2")
+    st.caption("Selecciona un equipo para ver contra quién le falta jugar.")
+    equipos_ordenados = sorted(equipos_map, key=lambda i: equipos_map[i].casefold())
+    pendientes_por_equipo = {
+        equipo: [rival for rival in equipos_ordenados
+                 if rival != equipo and frozenset((equipo, rival)) in cruces_pendientes]
+        for equipo in equipos_ordenados
+    }
+    if equipos_ordenados:
+        lista_equipos, lista_rivales = st.columns([1, 1.5], gap="large")
+        with lista_equipos:
+            seleccionado = st.radio(
+                "Todos los equipos",
+                equipos_ordenados,
+                format_func=lambda i: f"{equipos_map[i]} · {len(pendientes_por_equipo[i])} pendientes",
+                key="equipo_resumen_v2",
+            )
+        with lista_rivales:
+            st.text(equipos_map[seleccionado])
+            rivales = pendientes_por_equipo[seleccionado]
+            st.caption(f"{len(rivales)} rivales pendientes en la segunda vuelta")
+            if not rivales:
+                st.success("¡Ya completó todos sus cruces de la Vuelta 2!")
+            for rival in rivales:
+                cruce = frozenset((seleccionado, rival))
+                programados = [p for p in segunda
+                               if frozenset((p.get("equipo_local_id"), p.get("equipo_visita_id"))) == cruce]
+                with st.container(border=True):
+                    st.text(equipos_map[rival])
+                    if not programados:
+                        st.caption("Por programar · todavía sin fecha")
+                    for p in programados:
+                        estado = "Programado" if p.get("ganador_id") is None else "Resultado por revisar"
+                        st.caption(f"{estado} · Jornada {p.get('jornada', '—')} · {p.get('fecha') or 'Sin fecha'} · {p.get('hora') or 'Sin hora'} · {p.get('cancha') or 'Sin cancha'}")
+    else:
+        st.info("Todavía no hay equipos registrados.")
 
 
 with tab_clasificacion:
