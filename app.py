@@ -103,6 +103,7 @@ CSS_HOJA_ESTILOS = """
   .jornada-header { text-align: center; border-bottom: 1px solid #1E293B; padding-bottom: 10px; margin-bottom: 14px; }
   .jornada-title { font-size: 19px; font-weight: 900; color: #FF6B35; text-transform: uppercase; letter-spacing: 0.5px; }
   .jornada-status { font-size: 11px; color: #38BDF8; font-weight: 700; margin-top: 5px; letter-spacing: 0.5px; }
+  .jornada-notice { max-width: 900px; margin: 10px auto 0; color: #CBD5E1; font-size: 13px; line-height: 1.6; font-weight: 400; letter-spacing: normal; overflow-wrap: break-word; }
   .cancha-headers { display: flex; gap: 12px; margin-bottom: 10px; text-align: center; opacity: 0.9; }
   .cancha-header-space { width: 70px; flex-shrink: 0; }
   .cancha-title { flex: 1; color: #4A90E2; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; }
@@ -316,8 +317,8 @@ with tab_publico:
             estatus = "⏳ ROL PRELIMINAR: Sujeto a modificaciones"
             clase_contenedor, clase_status = "jornada-container jornada-preliminar", "jornada-status status-preliminar"
         else:
-            estatus = "⚡ JORNADA ESPECIAL: Lagos de visita" if tiene_lagos else "🏠 OPERACIÓN REGULAR"
-            clase_contenedor, clase_status = "jornada-container", "jornada-status"
+            estatus = "⚡ JORNADA ESPECIAL: Lagos de visita" if tiene_lagos else "La puntualidad refleja nuestra disciplina y compromiso. Estemos listos a la hora de jugar y arbitrar, y hagamos los cambios de cancha sin demoras. Gracias por respetar el tiempo de todos."
+            clase_contenedor, clase_status = "jornada-container", "jornada-status" if tiene_lagos else "jornada-notice"
         
         bloques = ""
         for h in ["7:00 PM", "8:00 PM", "9:00 PM"]:
