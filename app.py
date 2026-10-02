@@ -210,7 +210,7 @@ HEADER_HTML = f"""
         {BALON_WEB_IMG}
         <span style="color: #F8FAFC; font-size: 11px; font-weight: 800; letter-spacing: 2px; text-transform: uppercase;">TORNEO OFICIAL 2026</span>
     </div>
-    <h1 style="color: #FFFFFF; font-size: 42px; font-weight: 900; letter-spacing: -1.5px; margin: 0; text-transform: uppercase; line-height: 0.95;">LIGA LA CHONA</h1>
+    <h1 style="color: inherit; font-size: 42px; font-weight: 900; letter-spacing: -1.5px; margin: 0; text-transform: uppercase; line-height: 0.95;">LIGA LA CHONA</h1>
     <div style="width: 60px; height: 4px; background: linear-gradient(90deg, #FF6B35, #D44A1D); margin: 14px auto 0 auto; border-radius: 2px;"></div>
 </div>
 """
@@ -383,8 +383,8 @@ def resultado_valido(partido):
 
 with tab_resumen:
     st.html("""<style>
-    .resumen-heading {font:700 24px system-ui;color:#f8fafc;margin:12px 0 4px;}
-    .resumen-subtitle {font:13px system-ui;color:#94a3b8;margin:0 0 16px;}
+    .resumen-heading {font:700 24px system-ui;color:inherit;margin:12px 0 4px;}
+    .resumen-subtitle {font:13px system-ui;color:inherit;opacity:.8;margin:0 0 16px;}
     .resumen-metrics {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:12px 0;}
     .resumen-metric {background:#151e2c;border:1px solid #293548;border-radius:12px;padding:12px 10px;color:#cbd5e1;font:12px system-ui;}
     .resumen-metric strong {display:block;color:#f8fafc;font-size:24px;margin-bottom:4px;}
@@ -395,13 +395,13 @@ with tab_resumen:
     .st-key-resumen_equipos [role="radiogroup"] label p {font-size:13px;line-height:1.35;overflow-wrap:anywhere;color:#f8fafc;}
     .st-key-resumen_equipos [role="radiogroup"] label strong {display:inline-block;min-width:20px;text-align:center;border-radius:6px;background:#334155;color:#f8fafc;padding:1px 5px;margin-left:4px;}
     .st-key-resumen_equipos [role="radiogroup"] label:has(input:checked) strong {background:#ff8a5b;color:#20140e;}
-    .resumen-rivales {font-family:system-ui;color:#f8fafc;border:1px solid #334155;border-radius:14px;overflow:hidden;}
-    .resumen-rivales-heading {background:#151e2c;padding:14px;}
+    .resumen-rivales {font-family:system-ui;color:inherit;border:1px solid #334155;border-radius:14px;overflow:hidden;}
+    .resumen-rivales-heading {background:#151e2c;color:#f8fafc;padding:14px;}
     .resumen-rivales-heading strong {display:block;font-size:18px;}
     .resumen-rivales-heading small {display:block;color:#94a3b8;margin-top:5px;}
-    .resumen-rival {padding:12px 14px;border-top:1px solid #293548;}
-    .resumen-rival strong {font-size:14px;font-weight:600;}
-    .resumen-rival small {display:block;font-size:12px;color:#94a3b8;margin-top:4px;line-height:1.5;}
+    .resumen-rival {padding:12px 14px;border-top:1px solid #293548;background:transparent;color:inherit;}
+    .resumen-rival strong {font-size:14px;font-weight:700;color:inherit;}
+    .resumen-rival small {display:block;font-size:12px;color:inherit;opacity:.8;margin-top:4px;line-height:1.5;}
     </style><h2 class="resumen-heading">Pendientes · Vuelta 2</h2>
     <p class="resumen-subtitle">Elige un equipo y consulta sus próximos cruces.</p>""")
     # Exclusión visual del resumen; el catálogo y las otras pantallas se conservan.
