@@ -4,6 +4,11 @@ from supabase import create_client, Client
 from datetime import datetime, timedelta
 from html import escape
 from itertools import combinations
+from pathlib import Path
+
+# Directorio de recursos y pósteres oficiales
+BASE_DIR = Path(__file__).resolve().parent
+POSTERS_DIR = BASE_DIR / "assets" / "posters"
 
 # Configuración inicial de la página móvil/web
 st.set_page_config(
@@ -217,7 +222,7 @@ HEADER_HTML = f"""
 # ==========================================
 # 🎫 SEPARACIÓN DE PESTAÑAS
 # ==========================================
-tab_publico, tab_resumen, tab_clasificacion = st.tabs(["🏐 ROL", "📈 RESUMEN", "🏆 CLASIFICACIÓN"])
+tab_publico, tab_resumen, tab_clasificacion, tab_poster = st.tabs(["🏐 ROL", "📈 RESUMEN", "🏆 CLASIFICACIÓN", "🖼️ PÓSTER"])
 
 # ==========================================
 # 👥 PESTAÑA 1: VISTA PÚBLICA
@@ -582,3 +587,109 @@ with tab_clasificacion:
     st.html(generar_html_ranking())
     st.html(generar_html_matriz_resultados(1))
     st.html(generar_html_matriz_resultados(2))
+
+
+# ==========================================
+# 🖼️ PESTAÑA 4: PÓSTER OFICIAL DE ENFRENTAMIENTOS
+# ==========================================
+with tab_poster:
+    st.markdown(HEADER_HTML, unsafe_allow_html=True)
+
+    posters_disponibles = {}
+    if POSTERS_DIR.exists():
+        for f in POSTERS_DIR.glob("jornada_*.jpg"):
+            try:
+                num_j = int(f.stem.replace("jornada_", ""))
+                posters_disponibles[num_j] = f
+            except ValueError:
+                pass
+        for f in POSTERS_DIR.glob("jornada_*.png"):
+            try:
+                num_j = int(f.stem.replace("jornada_", ""))
+                if num_j not in posters_disponibles:
+                    posters_disponibles[num_j] = f
+            except ValueError:
+                pass
+
+    st.markdown("""
+    <div style="text-align: center; margin: 0 0 18px;">
+        <h2 style="color: #FF6B35; font-size: 22px; font-weight: 900; letter-spacing: 0.5px; text-transform: uppercase; margin: 0 0 6px;">
+            🖼️ PÓSTER OFICIAL DE LA JORNADA
+        </h2>
+        <p style="color: #94A3B8; font-size: 13px; margin: 0; font-family: system-ui, sans-serif;">
+            Cartel oficial de los enfrentamientos y arbitrajes, listo para visualizar y descargar.
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # Lista de jornadas para el selector
+    jornadas_db_poster = list(set([p["jornada"] for p in partidos_data]))
+    if JORNADA_ACTIVA not in jornadas_db_poster:
+        jornadas_db_poster.append(JORNADA_ACTIVA)
+    for j_disp in posters_disponibles.keys():
+        if j_disp not in jornadas_db_poster:
+            jornadas_db_poster.append(j_disp)
+
+    jornadas_ordenadas = sorted(jornadas_db_poster, reverse=True)
+
+    opciones_p = []
+    for j in jornadas_ordenadas:
+        indicador = " ⭐ (Disponible)" if j in posters_disponibles else ""
+        opciones_p.append(f"📅 JORNADA {j}{indicador}")
+
+    # Selección predeterminada: Jornada activa si tiene póster, o la jornada con póster más reciente
+    indice_default = 0
+    if JORNADA_ACTIVA in posters_disponibles:
+        for idx, opt in enumerate(opciones_p):
+            if f"JORNADA {JORNADA_ACTIVA} " in opt or opt.endswith(f"JORNADA {JORNADA_ACTIVA}"):
+                indice_default = idx
+                break
+    elif posters_disponibles:
+        j_reciente = max(posters_disponibles.keys())
+        for idx, opt in enumerate(opciones_p):
+            if f"JORNADA {j_reciente} " in opt or opt.endswith(f"JORNADA {j_reciente}"):
+                indice_default = idx
+                break
+
+    sel_poster = st.selectbox(
+        "Selecciona la Jornada para consultar el póster:",
+        opciones_p,
+        index=indice_default,
+        key="selector_poster_jornada"
+    )
+
+    j_sel_num = int(sel_poster.split("JORNADA ")[1].split(" ")[0])
+    fecha_poster = obtener_fecha_sabado(j_sel_num)
+
+    if j_sel_num in posters_disponibles:
+        ruta_img = posters_disponibles[j_sel_num]
+
+        col_izq, col_centro, col_der = st.columns([1, 6, 1])
+        with col_centro:
+            st.image(str(ruta_img), caption=f"Póster Oficial — Jornada {j_sel_num} ({fecha_poster})", use_container_width=True)
+
+            with open(ruta_img, "rb") as file_bytes:
+                datos_bytes = file_bytes.read()
+                ext = ruta_img.suffix.lower()
+                mime_type = "image/png" if ext == ".png" else "image/jpeg"
+                st.download_button(
+                    label=f"📥 Descargar Póster Jornada {j_sel_num} (Alta Calidad)",
+                    data=datos_bytes,
+                    file_name=f"Poster_LigaChona_Jornada_{j_sel_num}{ext}",
+                    mime=mime_type,
+                    use_container_width=True,
+                    key=f"btn_descarga_j{j_sel_num}"
+                )
+    else:
+        st.markdown(f"""
+        <div style="background-color: #060B14; border: 1px dashed #EAB308; border-radius: 16px; padding: 36px 20px; text-align: center; margin: 16px 0;">
+            <div style="font-size: 36px; margin-bottom: 12px;">⏳</div>
+            <div style="color: #EAB308; font-size: 18px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;">
+                Póster de Jornada {j_sel_num} en preparación
+            </div>
+            <p style="color: #94A3B8; font-size: 13px; max-width: 480px; margin: 10px auto 0; font-family: system-ui, sans-serif; line-height: 1.5;">
+                El diseño visual oficial para el <strong>{fecha_poster}</strong> aún no ha sido publicado. Consulta los enfrentamientos, canchas y horarios confirmados en la pestaña <strong>🏐 ROL</strong>.
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+
