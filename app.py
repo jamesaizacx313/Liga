@@ -385,6 +385,19 @@ def resultado_valido(partido):
             and partido.get("ganador_id") in (local, visita))
 
 
+# Los invitados siguen en el rol, pero no cuentan en las estadísticas del torneo.
+EQUIPOS_INVITADOS = {"lagos", "sub17", "independiente", "independientes"}
+equipos_competicion = {
+    i: nombre for i, nombre in equipos_map.items()
+    if "".join(c for c in nombre.casefold() if c.isalnum()) not in EQUIPOS_INVITADOS
+}
+partidos_competicion = [
+    p for p in partidos_data
+    if p.get("equipo_local_id") in equipos_competicion
+    and p.get("equipo_visita_id") in equipos_competicion
+]
+
+
 with tab_resumen:
     st.html("""<style>
     .resumen-heading {font:700 24px system-ui;color:inherit;margin:12px 0 4px;}
@@ -408,15 +421,8 @@ with tab_resumen:
     .resumen-rival small {display:block;font-size:12px;color:inherit;opacity:.8;margin-top:4px;line-height:1.5;}
     </style><h2 class="resumen-heading">Pendientes · Vuelta 2</h2>
     <p class="resumen-subtitle">Elige un equipo y consulta sus próximos cruces.</p>""")
-    # Exclusión visual del resumen; el catálogo y las otras pantallas se conservan.
-    excluidos_resumen = {"lagos", "sub17", "independiente", "independientes"}
-    equipos_resumen = {
-        i: nombre for i, nombre in equipos_map.items()
-        if "".join(c for c in nombre.casefold() if c.isalnum()) not in excluidos_resumen
-    }
-    partidos_resumen = [p for p in partidos_data
-                        if p.get("equipo_local_id") in equipos_resumen
-                        and p.get("equipo_visita_id") in equipos_resumen]
+    equipos_resumen = equipos_competicion
+    partidos_resumen = partidos_competicion
     jugados = [p for p in partidos_resumen if resultado_valido(p)]
     segunda = [p for p in partidos_resumen if vuelta_de(p) == 2]
     jugados_segunda = [p for p in segunda if resultado_valido(p)]
@@ -478,10 +484,10 @@ with tab_clasificacion:
     def generar_html_ranking():
         estadisticas = {
             equipo_id: {"nombre": nombre, "jugados": 0, "ganados": 0, "perdidos": 0}
-            for equipo_id, nombre in equipos_map.items()
+            for equipo_id, nombre in equipos_competicion.items()
         }
 
-        for partido in partidos_data:
+        for partido in partidos_competicion:
             ganador_id = partido.get("ganador_id")
             if not resultado_valido(partido):
                 continue
@@ -518,6 +524,7 @@ with tab_clasificacion:
         <div class="section-card">
             <h2 class="section-title">🏆 CLASIFICACIÓN GENERAL</h2>
             <p class="section-help">Solo se contabilizan partidos con resultado oficial.</p>
+            <p class="section-help"><small>No se toman en cuenta los partidos contra Sub 17, Independiente ni Lagos.</small></p>
             <div class="ranking-wrapper">
                 <table class="ranking-table">
                     <thead><tr><th>Pos.</th><th style="text-align:left;">Equipo</th><th>PJ</th><th>PG</th><th>PP</th><th>Efect.</th></tr></thead>
@@ -527,9 +534,9 @@ with tab_clasificacion:
         </div>"""
 
     def generar_html_matriz_resultados(vuelta):
-        ids = sorted(equipos_map, key=lambda i: equipos_map[i].casefold())
+        ids = sorted(equipos_competicion, key=lambda i: equipos_map[i].casefold())
         historial = {i: {j: [] for j in ids if j != i} for i in ids}
-        for p in partidos_data:
+        for p in partidos_competicion:
             if vuelta_de(p) != vuelta:
                 continue
             local, visita = p.get("equipo_local_id"), p.get("equipo_visita_id")
@@ -692,4 +699,5 @@ with tab_poster:
             </p>
         </div>
         """, unsafe_allow_html=True)
+
 
