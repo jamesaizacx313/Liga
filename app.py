@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 from html import escape
 from itertools import combinations
 from pathlib import Path
+import unicodedata
 
 # Directorio de recursos y pósteres oficiales
 BASE_DIR = Path(__file__).resolve().parent
@@ -82,13 +83,14 @@ supabase = init_supabase()
 
 @st.cache_data(ttl=60)
 def cargar_datos_torneo():
-    res_eq = supabase.table("equipos").select("id, nombre").execute()
+    res_eq = supabase.table("equipos").select("id, nombre, es_foraneo").execute()
     equipos_map = {eq["id"]: eq["nombre"] for eq in res_eq.data}
+    equipos_oficiales = {eq["id"] for eq in res_eq.data if eq.get("es_foraneo") is False}
     res_pt = supabase.table("partidos").select("*").order("jornada").order("hora").order("cancha").execute()
-    return equipos_map, res_pt.data
+    return equipos_map, equipos_oficiales, res_pt.data
 
 try:
-    equipos_map, partidos_data = cargar_datos_torneo()
+    equipos_map, equipos_oficiales, partidos_data = cargar_datos_torneo()
 except Exception as e:
     st.error("❌ Error al conectar con la base de datos.")
     st.stop()
@@ -148,6 +150,10 @@ CSS_HOJA_ESTILOS = """
   .matrix-table th, .matrix-table td { padding: 14px 12px; border: 1px solid #131B2E; white-space: nowrap; }
   .matrix-table th { background-color: #131B2E; color: #94A3B8; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; }
   .matrix-team-header { background-color: #131B2E !important; color: #FFFFFF; font-weight: 800; text-align: left; position: sticky; left: 0; font-size: 13px; }
+  .matrix-corner-header { position: sticky; left: 0; top: 0; z-index: 5 !important; background-color: #131B2E !important; text-align: left; padding: 12px 14px !important; font-weight: 900 !important; color: #FF6B35 !important; }
+  .matrix-col-header { background-color: #131B2E !important; padding: 10px 8px !important; min-width: 95px; text-align: center; vertical-align: middle; border: 1px solid #1E293B; }
+  .matrix-col-num { display: block; font-size: 10px; font-weight: 900; color: #FF6B35; letter-spacing: 0.5px; margin-bottom: 2px; }
+  .matrix-col-name { display: block; font-size: 11px; font-weight: 800; color: #F8FAFC; letter-spacing: 0.5px; white-space: nowrap; }
   .cell-diagonal { background-color: rgba(255, 107, 53, 0.12) !important; color: #FF6B35; font-weight: bold; }
   .cell-ganado { background-color: rgba(46, 204, 113, 0.16) !important; color: #2ECC71; font-weight: 800; text-transform: uppercase; }
   .cell-perdido { background-color: rgba(231, 76, 60, 0.16) !important; color: #E74C3C; font-weight: 800; text-transform: uppercase; }
@@ -195,6 +201,9 @@ CSS_HOJA_ESTILOS = """
     .section-card { padding: 12px 8px; border-radius: 12px; }
     .matrix-table th, .matrix-table td { padding: 10px 8px; font-size: 11px; }
     .matrix-team-header { max-width: 132px; overflow: hidden; text-overflow: ellipsis; }
+    .matrix-col-header { min-width: 80px; padding: 6px 4px !important; }
+    .matrix-col-num { font-size: 9px; }
+    .matrix-col-name { font-size: 10px; }
     .mobile-matches { display: block; }
     .mobile-full-matrix { display: block; }
     .desktop-matrix { display: none; }
@@ -373,7 +382,7 @@ with tab_publico:
 # ==========================================
 def vuelta_de(partido):
     try:
-        return int(partido.get("vuelta") or 1)
+        return int(partido["vuelta"]) if partido.get("vuelta") is not None else None
     except (TypeError, ValueError):
         return None
 
@@ -383,6 +392,12 @@ def resultado_valido(partido):
     visita = partido.get("equipo_visita_id")
     return (local in equipos_map and visita in equipos_map and local != visita
             and partido.get("ganador_id") in (local, visita))
+
+# ⭐ Solo compiten los equipos oficiales; los amistosos y los invitados no suman.
+def es_partido_oficial(partido):
+    return (partido.get("equipo_local_id") in equipos_oficiales
+            and partido.get("equipo_visita_id") in equipos_oficiales
+            and vuelta_de(partido) in (1, 2))
 
 
 # Los invitados siguen en el rol, pero no cuentan en las estadísticas del torneo.
@@ -489,7 +504,7 @@ with tab_clasificacion:
 
         for partido in partidos_competicion:
             ganador_id = partido.get("ganador_id")
-            if not resultado_valido(partido):
+            if not (resultado_valido(partido) and es_partido_oficial(partido)):
                 continue
 
             local_id = partido.get("equipo_local_id")
@@ -533,6 +548,36 @@ with tab_clasificacion:
             </div>
         </div>"""
 
+    def obtener_nombre_corto_equipo(nombre):
+        nfkd = unicodedata.normalize('NFKD', nombre)
+        sin_acento = ''.join(c for c in nfkd if not unicodedata.combining(c))
+        limpio = ''.join(c for c in sin_acento.casefold() if c.isalnum())
+        mapeo = {
+            'cardenales': 'CARDENALES',
+            'coreanosfc': 'COREANOS',
+            'coreanos': 'COREANOS',
+            'cuervos': 'CUERVOS',
+            'halconcitos': 'HALCONCITOS',
+            'halcones': 'HALCONES',
+            'nova': 'NOVA',
+            'panteras': 'PANTERAS',
+            'pinguinosdemadagascar': 'PINGÜINOS',
+            'pinguinos': 'PINGÜINOS',
+            'santamariavip': 'STA. MARÍA',
+            'santamaria': 'STA. MARÍA',
+            'titanes': 'TITANES',
+            'lagos': 'LAGOS',
+            'sub17': 'SUB 17',
+            'independiente': 'INDEP.',
+            'independientes': 'INDEP.',
+        }
+        if limpio in mapeo:
+            return mapeo[limpio]
+        partes = nombre.strip().split()
+        if len(partes) == 1:
+            return partes[0][:10].upper()
+        return f"{partes[0][:6]}. {partes[1][:4]}".upper()
+
     def generar_html_matriz_resultados(vuelta):
         ids = sorted(equipos_competicion, key=lambda i: equipos_map[i].casefold())
         historial = {i: {j: [] for j in ids if j != i} for i in ids}
@@ -559,9 +604,16 @@ with tab_clasificacion:
                 etiquetas.append(f'<span class="estado {clase}">{estado} · J{escape(str(jornada or "—"))}</span>')
             return "<br>".join(etiquetas)
 
-        tabla = '<div class="matrix-wrapper" role="region" aria-label="Matriz de enfrentamientos" tabindex="0"><table class="matrix-table"><thead><tr><th>Equipo</th>'
+        tabla = '<div class="matrix-wrapper" role="region" aria-label="Matriz de enfrentamientos" tabindex="0"><table class="matrix-table"><thead><tr><th scope="col" class="matrix-corner-header">Equipo</th>'
         for numero, equipo in enumerate(ids, 1):
-            tabla += f'<th scope="col" title="{escape(equipos_map[equipo])}">{numero}</th>'
+            nom_comp = equipos_map[equipo]
+            nom_corto = obtener_nombre_corto_equipo(nom_comp)
+            tabla += (
+                f'<th scope="col" class="matrix-col-header" title="{escape(nom_comp)}">'
+                f'<span class="matrix-col-num">{numero}</span>'
+                f'<span class="matrix-col-name">{escape(nom_corto)}</span>'
+                f'</th>'
+            )
         tabla += '</tr></thead><tbody>'
         movil = '<div class="mobile-matches">'
         for numero, equipo in enumerate(ids, 1):
