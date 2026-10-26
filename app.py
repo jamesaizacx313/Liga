@@ -191,6 +191,21 @@ CSS_HOJA_ESTILOS = """
   .matrix-table .matrix-team-header { top: auto; z-index: 1; white-space: normal; min-width: 120px; max-width: 180px; }
   .full-matrix > .section-help { padding: 12px; text-align: left; line-height: 1.8; }
 
+  @media (min-width: 551px) {
+    .desktop-matrix { min-width: 0; }
+    .desktop-matrix .matrix-wrapper { max-height: none; overflow: visible; box-sizing: border-box; }
+    .desktop-matrix .matrix-table { min-width: 0; table-layout: fixed; }
+    .desktop-matrix .matrix-table th,
+    .desktop-matrix .matrix-table td { padding: 10px 3px; white-space: normal; overflow-wrap: anywhere; }
+    .desktop-matrix .matrix-table th { position: static; }
+    .desktop-matrix .matrix-corner-header { width: 17%; padding: 10px 6px !important; }
+    .desktop-matrix .matrix-table .matrix-team-header { min-width: 0; max-width: none; font-size: 12px; }
+    .desktop-matrix .matrix-col-header { min-width: 0; padding: 10px 3px !important; }
+    .desktop-matrix .matrix-col-name { white-space: normal; overflow-wrap: anywhere; letter-spacing: 0; }
+    .desktop-matrix .estado { max-width: 100%; box-sizing: border-box; padding: 4px 2px; white-space: normal; overflow-wrap: anywhere; }
+    .ranking-table { min-width: 0; }
+  }
+
   @media (max-width: 550px) {
     .cancha-headers { display: none; }
     .match-row { flex-direction: column; align-items: stretch; gap: 4px; background-color: rgba(19, 27, 46, 0.3); padding: 10px; border-radius: 14px; border: 1px solid rgba(35, 45, 66, 0.4); }
