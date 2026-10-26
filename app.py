@@ -523,7 +523,13 @@ with tab_clasificacion:
         )
 
         filas = ""
-        for posicion, equipo in enumerate(ranking, start=1):
+        criterio_anterior = None
+        posicion = 0
+        for indice, equipo in enumerate(ranking, start=1):
+            criterio = (equipo["ganados"], equipo["perdidos"])
+            if criterio != criterio_anterior:
+                posicion = indice
+            criterio_anterior = criterio
             efectividad = (equipo["ganados"] / equipo["jugados"] * 100) if equipo["jugados"] else 0
             filas += f"""
             <tr>
@@ -539,6 +545,7 @@ with tab_clasificacion:
         <div class="section-card">
             <h2 class="section-title">🏆 CLASIFICACIÓN GENERAL</h2>
             <p class="section-help">Solo se contabilizan partidos con resultado oficial.</p>
+            <p class="section-help"><small>Equipos con las mismas victorias y derrotas comparten posición; el siguiente lugar salta los puestos empatados.</small></p>
             <p class="section-help"><small>No se toman en cuenta los partidos contra Sub 17, Independiente ni Lagos.</small></p>
             <div class="ranking-wrapper">
                 <table class="ranking-table">
