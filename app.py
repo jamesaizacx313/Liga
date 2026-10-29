@@ -32,6 +32,7 @@ if MODO_PAUSA:
 # 🎛️ CONTROL DE JORNADA ACTIVA Y FECHAS AUTOMÁTICO
 # ==========================================
 FECHA_BASE_TORNEO = datetime(2026, 5, 23)
+JORNADA_SEMIFINALES = 24  # Sábado 31 de octubre de 2026
 
 # CÁLCULO AUTOMÁTICO
 fecha_pivote = datetime.now() + timedelta(days=5)
@@ -285,7 +286,7 @@ with tab_publico:
         
         loc = equipos_map.get(partido["equipo_local_id"])
         vis = equipos_map.get(partido["equipo_visita_id"])
-        arb = equipos_map.get(partido["equipo_arbitro_id"], "Sin Árbitro")
+        arb = equipos_map.get(partido["equipo_arbitro_id"], "Por confirmar")
         
         # Extracción y diseño de la VUELTA
         vuelta_num = partido.get("vuelta", 1)
@@ -328,6 +329,8 @@ with tab_publico:
     def generar_html_jornada(j_num):
         partidos = [p for p in partidos_data if p["jornada"] == int(j_num)]
         fecha_correspondiente = obtener_fecha_sabado(j_num)
+        es_semifinal = int(j_num) == JORNADA_SEMIFINALES
+        titulo_jornada = "SEMIFINALES" if es_semifinal else f"JORNADA {j_num}"
         
         if not partidos:
             return f"""
@@ -348,8 +351,13 @@ with tab_publico:
             estatus = "⚡ JORNADA ESPECIAL: Lagos de visita" if tiene_lagos else ""
             clase_contenedor, clase_status = "jornada-container", "jornada-status"
         
+        if es_semifinal:
+            estatus = "PARTIDOS A GANAR 3 DE 5 SETS"
+
         bloques = ""
-        for h in ["7:00 PM", "8:00 PM", "9:00 PM"]:
+        horarios = sorted({p["hora"] for p in partidos},
+                          key=lambda hora: datetime.strptime(hora, "%I:%M %p"))
+        for h in horarios:
             p_hora = [p for p in partidos if p["hora"] == h]
             p_c1 = next((p for p in p_hora if p["cancha"] == "Cancha 1"), None)
             p_c2 = next((p for p in p_hora if p["cancha"] == "Cancha 2"), None)
@@ -368,7 +376,7 @@ with tab_publico:
         return f"""
         <div class="{clase_contenedor}">
             <div class="jornada-header">
-                <div class="jornada-title">JORNADA {j_num} — {fecha_correspondiente.upper()}</div>
+                <div class="jornada-title">{titulo_jornada} — {fecha_correspondiente.upper()}</div>
                 {f'<div class="{clase_status}">{estatus}</div>' if estatus else ""}
             </div>
             <div class="cancha-headers">
