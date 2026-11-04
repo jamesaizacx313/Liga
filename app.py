@@ -33,6 +33,7 @@ if MODO_PAUSA:
 # ==========================================
 FECHA_BASE_TORNEO = datetime(2026, 5, 23)
 JORNADA_SEMIFINALES = 24  # Sábado 31 de octubre de 2026
+JORNADA_FINALES = 25      # Sábado 7 de noviembre de 2026
 
 # CÁLCULO AUTOMÁTICO
 fecha_pivote = datetime.now() + timedelta(days=5)
@@ -335,7 +336,13 @@ with tab_publico:
         partidos = [p for p in partidos_data if p["jornada"] == int(j_num)]
         fecha_correspondiente = obtener_fecha_sabado(j_num)
         es_semifinal = int(j_num) == JORNADA_SEMIFINALES
-        titulo_jornada = "SEMIFINALES" if es_semifinal else f"JORNADA {j_num}"
+        es_final = int(j_num) == JORNADA_FINALES
+        if es_semifinal:
+            titulo_jornada = "SEMIFINALES"
+        elif es_final:
+            titulo_jornada = "GRAN FINAL Y 3ER LUGAR"
+        else:
+            titulo_jornada = f"JORNADA {j_num}"
         
         if not partidos:
             return f"""
@@ -356,7 +363,7 @@ with tab_publico:
             estatus = "⚡ JORNADA ESPECIAL: Lagos de visita" if tiene_lagos else ""
             clase_contenedor, clase_status = "jornada-container", "jornada-status"
         
-        if es_semifinal:
+        if es_semifinal or es_final:
             estatus = "PARTIDOS A GANAR 3 DE 5 SETS"
 
         bloques = ""
