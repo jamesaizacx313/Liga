@@ -263,7 +263,12 @@ with tab_publico:
         jornadas = sorted(jornadas_db)
         
         opciones_j = ["📅 TODAS LAS JORNADAS"] + [f"📅 JORNADA {j}" for j in jornadas]
-        string_jornada_activa = f"📅 JORNADA {JORNADA_ACTIVA}"
+        jornadas_con_partidos = sorted(list(set([p["jornada"] for p in partidos_data])))
+        jornada_defecto = JORNADA_ACTIVA
+        if JORNADA_ACTIVA not in jornadas_con_partidos and jornadas_con_partidos:
+            jornada_defecto = max(jornadas_con_partidos)
+
+        string_jornada_activa = f"📅 JORNADA {jornada_defecto}"
         default_index = opciones_j.index(string_jornada_activa) if string_jornada_activa in opciones_j else 1
         
         jornada_sel = st.selectbox("Jornada", opciones_j, index=default_index, filter_mode=None)
