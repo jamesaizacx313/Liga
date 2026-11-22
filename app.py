@@ -330,7 +330,8 @@ with tab_publico:
         jornada_val = "TODAS" if "TODAS" in jornada_sel else int(jornada_sel.split("JORNADA ")[1])
 
     with col2:
-        opciones_e = ["🔍 TODOS LOS EQUIPOS"] + sorted(list(equipos_map.values()))
+        _equipos_filtro = sorted(list(equipos_competicion.values())) if _torneo_sel_id == 2 else sorted(list(equipos_map.values()))
+        opciones_e = ["🔍 TODOS LOS EQUIPOS"] + _equipos_filtro
         equipo_sel = st.selectbox("Equipo", opciones_e, index=0, filter_mode=None)
         equipo_val = "VER TODO" if "TODOS" in equipo_sel else equipo_sel
 
@@ -539,27 +540,42 @@ with tab_resumen:
     .resumen-rival {padding:12px 14px;border-top:1px solid #293548;background:transparent;color:inherit;}
     .resumen-rival strong {font-size:14px;font-weight:700;color:inherit;}
     .resumen-rival small {display:block;font-size:12px;color:inherit;opacity:.8;margin-top:4px;line-height:1.5;}
-    </style><h2 class="resumen-heading">Pendientes · Vuelta 2</h2>
+    </style><h2 class="resumen-heading">Pendientes y Próximos Cruces</h2>
     <p class="resumen-subtitle">Elige un equipo y consulta sus próximos cruces.</p>""")
     equipos_resumen = equipos_competicion
     partidos_resumen = partidos_competicion
     jugados = [p for p in partidos_resumen if resultado_valido(p)]
-    segunda = [p for p in partidos_resumen if vuelta_de(p) == 2]
-    jugados_segunda = [p for p in segunda if resultado_valido(p)]
-    # Cada pareja cuenta una vez, independientemente de local/visita o repeticiones.
-    cruces_totales = {frozenset(par) for par in combinations(equipos_resumen, 2)}
-    cruces_jugados = {frozenset((p["equipo_local_id"], p["equipo_visita_id"])) for p in jugados_segunda}
-    cruces_pendientes = cruces_totales - cruces_jugados
-    st.html(f'''<div class="resumen-metrics">
-        <div class="resumen-metric"><strong>{len(jugados)}</strong>Jugados · torneo</div>
-        <div class="resumen-metric"><strong>{len(jugados_segunda)}</strong>Jugados · V2</div>
-        <div class="resumen-metric"><strong>{len(cruces_pendientes)}</strong>Pendientes · V2</div>
-    </div>''')
-    if cruces_totales:
-        st.progress(len(cruces_jugados) / len(cruces_totales),
-                    text=f"{len(cruces_jugados)} de {len(cruces_totales)} cruces de Vuelta 2 completados")
+    
+    if _torneo_sel_id == 2:
+        cruces_totales = {frozenset(par) for par in combinations(equipos_resumen, 2)}
+        cruces_jugados = {frozenset((p["equipo_local_id"], p["equipo_visita_id"])) for p in jugados}
+        cruces_pendientes = cruces_totales - cruces_jugados
+        st.html(f'''<div class="resumen-metrics">
+            <div class="resumen-metric"><strong>{len(jugados)}</strong>Jugados</div>
+            <div class="resumen-metric"><strong>{len(cruces_jugados)}</strong>Cruces Jugados</div>
+            <div class="resumen-metric"><strong>{len(cruces_pendientes)}</strong>Cruces Pendientes</div>
+        </div>''')
+        if cruces_totales:
+            st.progress(len(cruces_jugados) / len(cruces_totales),
+                        text=f"{len(cruces_jugados)} de {len(cruces_totales)} cruces completados")
+        else:
+            st.info("Se necesitan al menos dos equipos para calcular los cruces.")
     else:
-        st.info("Se necesitan al menos dos equipos para calcular los cruces.")
+        segunda = [p for p in partidos_resumen if vuelta_de(p) == 2]
+        jugados_segunda = [p for p in segunda if resultado_valido(p)]
+        cruces_totales = {frozenset(par) for par in combinations(equipos_resumen, 2)}
+        cruces_jugados = {frozenset((p["equipo_local_id"], p["equipo_visita_id"])) for p in jugados_segunda}
+        cruces_pendientes = cruces_totales - cruces_jugados
+        st.html(f'''<div class="resumen-metrics">
+            <div class="resumen-metric"><strong>{len(jugados)}</strong>Jugados · torneo</div>
+            <div class="resumen-metric"><strong>{len(jugados_segunda)}</strong>Jugados · V2</div>
+            <div class="resumen-metric"><strong>{len(cruces_pendientes)}</strong>Pendientes · V2</div>
+        </div>''')
+        if cruces_totales:
+            st.progress(len(cruces_jugados) / len(cruces_totales),
+                        text=f"{len(cruces_jugados)} de {len(cruces_totales)} cruces de Vuelta 2 completados")
+        else:
+            st.info("Se necesitan al menos dos equipos para calcular los cruces.")
     equipos_ordenados = sorted(equipos_resumen, key=lambda i: equipos_resumen[i].casefold())
     pendientes_por_equipo = {
         equipo: [rival for rival in equipos_ordenados
@@ -635,6 +651,7 @@ with tab_clasificacion:
             if criterio != criterio_anterior:
                 posicion = indice
             criterio_anterior = criterio
+            puntos = equipo["ganados"] * 3
             efectividad = (equipo["ganados"] / equipo["jugados"] * 100) if equipo["jugados"] else 0
             filas += f"""
             <tr>
@@ -643,18 +660,21 @@ with tab_clasificacion:
                 <td>{equipo['jugados']}</td>
                 <td class="rank-wins">{equipo['ganados']}</td>
                 <td class="rank-losses">{equipo['perdidos']}</td>
+                <td style="font-weight: 800; color: #38BDF8;">{puntos}</td>
                 <td>{efectividad:.0f}%</td>
             </tr>"""
+
+        nota_foraneos = "<p class=\"section-help\"><small>No se toman en cuenta los partidos contra Sub 17, Independiente ni Lagos.</small></p>" if _torneo_sel_id == 1 else ""
 
         return f"""
         <div class="section-card">
             <h2 class="section-title">🏆 CLASIFICACIÓN GENERAL</h2>
             <p class="section-help">Solo se contabilizan partidos con resultado oficial.</p>
             <p class="section-help"><small>Equipos con las mismas victorias y derrotas comparten posición; el siguiente lugar salta los puestos empatados.</small></p>
-            <p class="section-help"><small>No se toman en cuenta los partidos contra Sub 17, Independiente ni Lagos.</small></p>
+            {nota_foraneos}
             <div class="ranking-wrapper">
                 <table class="ranking-table">
-                    <thead><tr><th>Pos.</th><th style="text-align:left;">Equipo</th><th>PJ</th><th>PG</th><th>PP</th><th>Efect.</th></tr></thead>
+                    <thead><tr><th>Pos.</th><th style="text-align:left;">Equipo</th><th>PJ</th><th>PG</th><th>PP</th><th>Pts</th><th>Efect.</th></tr></thead>
                     <tbody>{filas}</tbody>
                 </table>
             </div>
