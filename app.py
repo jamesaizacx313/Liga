@@ -87,11 +87,10 @@ supabase = init_supabase()
 def cargar_torneos():
     """Carga todos los torneos disponibles desde Supabase."""
     try:
-        res = supabase.table("torneos").select("id, nombre, activo").order("id").execute()
+        res = supabase.table("torneos").select("id, nombre, activo, fecha_inicio, fecha_fin").order("id").execute()
         return res.data
     except Exception:
-        # Compatibilidad: si la tabla torneos aún no existe, devuelve un torneo ficticio
-        return [{"id": None, "nombre": "Torneo Actual", "activo": True}]
+        return [{"id": None, "nombre": "Torneo Actual", "activo": True, "fecha_inicio": "2026-05-23"}]
 
 @st.cache_data(ttl=60)
 def cargar_datos_torneo(torneo_id=None):
@@ -130,6 +129,21 @@ if len(torneos_disponibles) > 1:
     _torneo_sel_id = _torneo_ids[_torneo_opciones.index(_sel_nombre)]
 else:
     _torneo_sel_id = _torneo_ids[0] if _torneo_ids else None
+
+# Obtener metadata del torneo seleccionado
+_torneo_info = next((t for t in torneos_disponibles if t.get("id") == _torneo_sel_id), {})
+
+if _torneo_sel_id == 2:
+    FECHA_BASE_TORNEO = datetime(2026, 11, 14)
+    JORNADA_SEMIFINALES = None
+    JORNADA_FINALES = None
+    _fecha_pivote = datetime.now() + timedelta(days=5)
+    JORNADA_ACTIVA = max(1, ((_fecha_pivote - FECHA_BASE_TORNEO).days // 7) + 1)
+else:
+    FECHA_BASE_TORNEO = datetime(2026, 5, 23)
+    JORNADA_SEMIFINALES = 24
+    JORNADA_FINALES = 25
+    JORNADA_ACTIVA = 25  # Torneo 1 concluido
 
 try:
     equipos_map, equipos_oficiales, partidos_data = cargar_datos_torneo(_torneo_sel_id)
@@ -468,19 +482,35 @@ def resultado_valido(partido):
     return (local in equipos_map and visita in equipos_map and local != visita
             and partido.get("ganador_id") in (local, visita))
 
-# ⭐ Solo compiten los equipos oficiales; los amistosos y los invitados no suman.
+# ⭐ Definición de equipos y partidos que computan en la tabla según el torneo
 def es_partido_oficial(partido):
+    if _torneo_sel_id == 2:
+        return vuelta_de(partido) in (1, 2)
     return (partido.get("equipo_local_id") in equipos_oficiales
             and partido.get("equipo_visita_id") in equipos_oficiales
             and vuelta_de(partido) in (1, 2))
 
+if _torneo_sel_id == 2:
+    # En Torneo 2 todos los 12 equipos son oficiales y compiten en la tabla
+    _equipos_en_t2 = set()
+    for p in partidos_data:
+        if p.get("equipo_local_id"): _equipos_en_t2.add(p["equipo_local_id"])
+        if p.get("equipo_visita_id"): _equipos_en_t2.add(p["equipo_visita_id"])
+    # Incluir equipos del torneo aunque aún no tengan partidos
+    _t2_nombres_esperados = ["san juan", "halcones", "cuervos", "spartacus", "rancho 2 hnos",
+                             "pinguinos", "pingüinos", "depredadores", "independiente",
+                             "cardenales", "felinos", "black jackals", "nova"]
+    for _eid, _nom in equipos_map.items():
+        if any(_t in _nom.lower() or _nom.lower() in _t for _t in _t2_nombres_esperados):
+            _equipos_en_t2.add(_eid)
+    equipos_competicion = {i: equipos_map[i] for i in _equipos_en_t2 if i in equipos_map}
+else:
+    EQUIPOS_INVITADOS = {"lagos", "sub17", "independiente", "independientes"}
+    equipos_competicion = {
+        i: nombre for i, nombre in equipos_map.items()
+        if "".join(c for c in nombre.casefold() if c.isalnum()) not in EQUIPOS_INVITADOS
+    }
 
-# Los invitados siguen en el rol, pero no cuentan en las estadísticas del torneo.
-EQUIPOS_INVITADOS = {"lagos", "sub17", "independiente", "independientes"}
-equipos_competicion = {
-    i: nombre for i, nombre in equipos_map.items()
-    if "".join(c for c in nombre.casefold() if c.isalnum()) not in EQUIPOS_INVITADOS
-}
 partidos_competicion = [
     p for p in partidos_data
     if p.get("equipo_local_id") in equipos_competicion
@@ -652,6 +682,12 @@ with tab_clasificacion:
             'sub17': 'SUB 17',
             'independiente': 'INDEP.',
             'independientes': 'INDEP.',
+            'sanjuan': 'SAN JUAN',
+            'spartacus': 'SPARTACUS',
+            'rancho2hnos': 'RANCHO 2 H.',
+            'depredadores': 'DEPREDADORES',
+            'blackjackals': 'B. JACKALS',
+            'felinos': 'FELINOS',
         }
         if limpio in mapeo:
             return mapeo[limpio]
