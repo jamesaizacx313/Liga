@@ -83,16 +83,56 @@ def init_supabase():
 
 supabase = init_supabase()
 
+@st.cache_data(ttl=120)
+def cargar_torneos():
+    """Carga todos los torneos disponibles desde Supabase."""
+    try:
+        res = supabase.table("torneos").select("id, nombre, activo").order("id").execute()
+        return res.data
+    except Exception:
+        # Compatibilidad: si la tabla torneos aún no existe, devuelve un torneo ficticio
+        return [{"id": None, "nombre": "Torneo Actual", "activo": True}]
+
 @st.cache_data(ttl=60)
-def cargar_datos_torneo():
+def cargar_datos_torneo(torneo_id=None):
+    """Carga equipos y partidos. Si torneo_id es None, trae todos los partidos (legacy)."""
     res_eq = supabase.table("equipos").select("id, nombre, es_foraneo").execute()
     equipos_map = {eq["id"]: eq["nombre"] for eq in res_eq.data}
     equipos_oficiales = {eq["id"] for eq in res_eq.data if eq.get("es_foraneo") is False}
-    res_pt = supabase.table("partidos").select("*").order("jornada").order("hora").order("cancha").execute()
+    query = supabase.table("partidos").select("*").order("jornada").order("hora").order("cancha")
+    if torneo_id is not None:
+        query = query.eq("torneo_id", torneo_id)
+    res_pt = query.execute()
     return equipos_map, equipos_oficiales, res_pt.data
 
+# ==========================================
+# 🏆 SELECTOR DE TORNEO (Sidebar)
+# ==========================================
+torneos_disponibles = cargar_torneos()
+
+# Preparar opciones para el selector
+_torneo_opciones = [t["nombre"] for t in torneos_disponibles]
+_torneo_ids      = [t["id"] for t in torneos_disponibles]
+
+# Índice por defecto: el torneo activo (o el último si ninguno está activo)
+_default_idx = 0
+for _i, _t in enumerate(torneos_disponibles):
+    if _t.get("activo"):
+        _default_idx = _i
+
+if len(torneos_disponibles) > 1:
+    _sel_nombre = st.sidebar.selectbox(
+        "🏆 Torneo",
+        _torneo_opciones,
+        index=_default_idx,
+        key="selector_torneo_global"
+    )
+    _torneo_sel_id = _torneo_ids[_torneo_opciones.index(_sel_nombre)]
+else:
+    _torneo_sel_id = _torneo_ids[0] if _torneo_ids else None
+
 try:
-    equipos_map, equipos_oficiales, partidos_data = cargar_datos_torneo()
+    equipos_map, equipos_oficiales, partidos_data = cargar_datos_torneo(_torneo_sel_id)
 except Exception as e:
     st.error("❌ Error al conectar con la base de datos.")
     st.stop()
