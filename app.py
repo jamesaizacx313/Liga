@@ -804,19 +804,38 @@ with tab_poster:
 
     posters_disponibles = {}
     if POSTERS_DIR.exists():
-        for f in POSTERS_DIR.glob("jornada_*.jpg"):
-            try:
-                num_j = int(f.stem.replace("jornada_", ""))
-                posters_disponibles[num_j] = f
-            except ValueError:
-                pass
-        for f in POSTERS_DIR.glob("jornada_*.png"):
-            try:
-                num_j = int(f.stem.replace("jornada_", ""))
-                if num_j not in posters_disponibles:
-                    posters_disponibles[num_j] = f
-            except ValueError:
-                pass
+        # 1. Buscar en subcarpeta específica del torneo (assets/posters/torneo_1, torneo_2)
+        dir_torneo = POSTERS_DIR / f"torneo_{_torneo_sel_id}"
+        if dir_torneo.exists():
+            for patron in ("jornada_*.jpg", "jornada_*.png", "jornada_*.jpeg"):
+                for f in dir_torneo.glob(patron):
+                    try:
+                        num_j = int(f.stem.replace("jornada_", ""))
+                        if num_j not in posters_disponibles:
+                            posters_disponibles[num_j] = f
+                    except ValueError:
+                        pass
+
+        # 2. Buscar en la raíz con prefijo t{id}_jornada_*
+        for patron in (f"t{_torneo_sel_id}_jornada_*.jpg", f"t{_torneo_sel_id}_jornada_*.png", f"t{_torneo_sel_id}_jornada_*.jpeg"):
+            for f in POSTERS_DIR.glob(patron):
+                try:
+                    num_j = int(f.stem.replace(f"t{_torneo_sel_id}_jornada_", ""))
+                    if num_j not in posters_disponibles:
+                        posters_disponibles[num_j] = f
+                except ValueError:
+                    pass
+
+        # 3. Fallback solo para Torneo 1 si hubiera archivos legados sueltos en raíz
+        if _torneo_sel_id == 1:
+            for patron in ("jornada_*.jpg", "jornada_*.png", "jornada_*.jpeg"):
+                for f in POSTERS_DIR.glob(patron):
+                    try:
+                        num_j = int(f.stem.replace("jornada_", ""))
+                        if num_j not in posters_disponibles:
+                            posters_disponibles[num_j] = f
+                    except ValueError:
+                        pass
 
     st.markdown("""
     <div style="text-align: center; margin: 0 0 18px;">
@@ -829,24 +848,43 @@ with tab_poster:
     </div>
     """, unsafe_allow_html=True)
 
-    # Lista de jornadas para el selector
+    # Lista de jornadas para el selector según el torneo actual
     jornadas_db_poster = list(set([p["jornada"] for p in partidos_data]))
-    if JORNADA_ACTIVA not in jornadas_db_poster:
+    if JORNADA_ACTIVA and JORNADA_ACTIVA not in jornadas_db_poster:
         jornadas_db_poster.append(JORNADA_ACTIVA)
     for j_disp in posters_disponibles.keys():
         if j_disp not in jornadas_db_poster:
             jornadas_db_poster.append(j_disp)
 
+    # Si es Torneo 2, permitir consultar al menos las jornadas 1, 2 y 3
+    if _torneo_sel_id == 2:
+        for j_min in [1, 2, 3]:
+            if j_min not in jornadas_db_poster:
+                jornadas_db_poster.append(j_min)
+
     jornadas_ordenadas = sorted(jornadas_db_poster, reverse=True)
+    if not jornadas_ordenadas:
+        jornadas_ordenadas = [1]
 
     opciones_p = []
     for j in jornadas_ordenadas:
         indicador = " ⭐ (Disponible)" if j in posters_disponibles else ""
         opciones_p.append(f"📅 JORNADA {j}{indicador}")
 
-    # Selección predeterminada: Jornada activa si tiene póster, o la jornada con póster más reciente
+    # Selección predeterminada:
+    # 1. Si el usuario seleccionó una jornada específica en ROL, preseleccionar esa jornada
+    # 2. Si la jornada activa tiene póster, usar la activa
+    # 3. La jornada con póster más reciente disponible
+    # 4. La jornada activa
     indice_default = 0
-    if JORNADA_ACTIVA in posters_disponibles:
+    jornada_rol_target = jornada_val if ('jornada_val' in locals() and jornada_val != "TODAS") else None
+
+    if jornada_rol_target and jornada_rol_target in jornadas_ordenadas:
+        for idx, opt in enumerate(opciones_p):
+            if f"JORNADA {jornada_rol_target} " in opt or opt.endswith(f"JORNADA {jornada_rol_target}"):
+                indice_default = idx
+                break
+    elif JORNADA_ACTIVA in posters_disponibles:
         for idx, opt in enumerate(opciones_p):
             if f"JORNADA {JORNADA_ACTIVA} " in opt or opt.endswith(f"JORNADA {JORNADA_ACTIVA}"):
                 indice_default = idx
@@ -857,12 +895,17 @@ with tab_poster:
             if f"JORNADA {j_reciente} " in opt or opt.endswith(f"JORNADA {j_reciente}"):
                 indice_default = idx
                 break
+    elif JORNADA_ACTIVA in jornadas_ordenadas:
+        for idx, opt in enumerate(opciones_p):
+            if f"JORNADA {JORNADA_ACTIVA} " in opt or opt.endswith(f"JORNADA {JORNADA_ACTIVA}"):
+                indice_default = idx
+                break
 
     sel_poster = st.selectbox(
         "Selecciona la Jornada para consultar el póster:",
         opciones_p,
         index=indice_default,
-        key="selector_poster_jornada"
+        key=f"selector_poster_jornada_{_torneo_sel_id}"
     )
 
     j_sel_num = int(sel_poster.split("JORNADA ")[1].split(" ")[0])
