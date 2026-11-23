@@ -152,6 +152,56 @@ except Exception as e:
     st.stop()
 
 # ==========================================
+# 🏆 FUNCIONES AUXILIARES Y EQUIPOS POR TORNEO
+# (definidas aquí para estar disponibles en todas las pestañas)
+# ==========================================
+def vuelta_de(partido):
+    try:
+        return int(partido["vuelta"]) if partido.get("vuelta") is not None else None
+    except (TypeError, ValueError):
+        return None
+
+def resultado_valido(partido):
+    local = partido.get("equipo_local_id")
+    visita = partido.get("equipo_visita_id")
+    return (local in equipos_map and visita in equipos_map and local != visita
+            and partido.get("ganador_id") in (local, visita))
+
+if _torneo_sel_id == 2:
+    # En Torneo 2 todos los 12 equipos son oficiales y compiten en la tabla
+    _equipos_en_t2 = set()
+    for p in partidos_data:
+        if p.get("equipo_local_id"): _equipos_en_t2.add(p["equipo_local_id"])
+        if p.get("equipo_visita_id"): _equipos_en_t2.add(p["equipo_visita_id"])
+    # Incluir equipos del torneo aunque aún no tengan partidos
+    _t2_nombres_esperados = ["san juan", "halcones", "cuervos", "spartacus", "rancho 2 hnos",
+                             "pinguinos", "pingüinos", "depredadores", "independiente",
+                             "cardenales", "felinos", "black jackals", "nova"]
+    for _eid, _nom in equipos_map.items():
+        if any(_t in _nom.lower() or _nom.lower() in _t for _t in _t2_nombres_esperados):
+            _equipos_en_t2.add(_eid)
+    equipos_competicion = {i: equipos_map[i] for i in _equipos_en_t2 if i in equipos_map}
+else:
+    EQUIPOS_INVITADOS = {"lagos", "sub17", "independiente", "independientes"}
+    equipos_competicion = {
+        i: nombre for i, nombre in equipos_map.items()
+        if "".join(c for c in nombre.casefold() if c.isalnum()) not in EQUIPOS_INVITADOS
+    }
+
+partidos_competicion = [
+    p for p in partidos_data
+    if p.get("equipo_local_id") in equipos_competicion
+    and p.get("equipo_visita_id") in equipos_competicion
+]
+
+def es_partido_oficial(partido):
+    if _torneo_sel_id == 2:
+        return vuelta_de(partido) in (1, 2)
+    return (partido.get("equipo_local_id") in equipos_oficiales
+            and partido.get("equipo_visita_id") in equipos_oficiales
+            and vuelta_de(partido) in (1, 2))
+
+# ==========================================
 # 📌 ASSETS GRÁFICOS VECTORIALES
 # ==========================================
 BALON_WEB_IMG = '<img src="https://img.icons8.com/color/96/volleyball.png" width="22" height="22" style="vertical-align: middle; margin-right: 8px; display: inline-block; filter: drop-shadow(0px 2px 4px rgba(0,0,0,0.15));"/>'
@@ -468,57 +518,8 @@ with tab_publico:
 
 
 # ==========================================
-# 🏆 PESTAÑA 2: CLASIFICACIÓN Y MATRICES
+# 🏆 PESTAÑA 2: RESUMEN
 # ==========================================
-def vuelta_de(partido):
-    try:
-        return int(partido["vuelta"]) if partido.get("vuelta") is not None else None
-    except (TypeError, ValueError):
-        return None
-
-
-def resultado_valido(partido):
-    local = partido.get("equipo_local_id")
-    visita = partido.get("equipo_visita_id")
-    return (local in equipos_map and visita in equipos_map and local != visita
-            and partido.get("ganador_id") in (local, visita))
-
-# ⭐ Definición de equipos y partidos que computan en la tabla según el torneo
-def es_partido_oficial(partido):
-    if _torneo_sel_id == 2:
-        return vuelta_de(partido) in (1, 2)
-    return (partido.get("equipo_local_id") in equipos_oficiales
-            and partido.get("equipo_visita_id") in equipos_oficiales
-            and vuelta_de(partido) in (1, 2))
-
-if _torneo_sel_id == 2:
-    # En Torneo 2 todos los 12 equipos son oficiales y compiten en la tabla
-    _equipos_en_t2 = set()
-    for p in partidos_data:
-        if p.get("equipo_local_id"): _equipos_en_t2.add(p["equipo_local_id"])
-        if p.get("equipo_visita_id"): _equipos_en_t2.add(p["equipo_visita_id"])
-    # Incluir equipos del torneo aunque aún no tengan partidos
-    _t2_nombres_esperados = ["san juan", "halcones", "cuervos", "spartacus", "rancho 2 hnos",
-                             "pinguinos", "pingüinos", "depredadores", "independiente",
-                             "cardenales", "felinos", "black jackals", "nova"]
-    for _eid, _nom in equipos_map.items():
-        if any(_t in _nom.lower() or _nom.lower() in _t for _t in _t2_nombres_esperados):
-            _equipos_en_t2.add(_eid)
-    equipos_competicion = {i: equipos_map[i] for i in _equipos_en_t2 if i in equipos_map}
-else:
-    EQUIPOS_INVITADOS = {"lagos", "sub17", "independiente", "independientes"}
-    equipos_competicion = {
-        i: nombre for i, nombre in equipos_map.items()
-        if "".join(c for c in nombre.casefold() if c.isalnum()) not in EQUIPOS_INVITADOS
-    }
-
-partidos_competicion = [
-    p for p in partidos_data
-    if p.get("equipo_local_id") in equipos_competicion
-    and p.get("equipo_visita_id") in equipos_competicion
-]
-
-
 with tab_resumen:
     st.html("""<style>
     .resumen-heading {font:700 24px system-ui;color:inherit;margin:12px 0 4px;}
