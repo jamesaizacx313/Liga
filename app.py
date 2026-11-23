@@ -548,6 +548,7 @@ with tab_resumen:
     jugados = [p for p in partidos_resumen if resultado_valido(p)]
     
     if _torneo_sel_id == 2:
+        segunda = []  # En Torneo 2 no hay Vuelta 2 definida aún
         cruces_totales = {frozenset(par) for par in combinations(equipos_resumen, 2)}
         cruces_jugados = {frozenset((p["equipo_local_id"], p["equipo_visita_id"])) for p in jugados}
         cruces_pendientes = cruces_totales - cruces_jugados
@@ -595,9 +596,12 @@ with tab_resumen:
         with lista_rivales:
             rivales = pendientes_por_equipo[seleccionado]
             filas_rivales = ""
+            # En T1 buscamos cruces en "segunda" (vuelta 2); en T2 en todos los partidos
+            _pool_cruces = segunda if _torneo_sel_id != 2 else partidos_resumen
+            _label_vuelta = "Vuelta 2" if _torneo_sel_id != 2 else "Torneo 2"
             for rival in rivales:
                 cruce = frozenset((seleccionado, rival))
-                programados = [p for p in segunda
+                programados = [p for p in _pool_cruces
                                if frozenset((p.get("equipo_local_id"), p.get("equipo_visita_id"))) == cruce]
                 detalles = []
                 for p in programados:
@@ -606,13 +610,18 @@ with tab_resumen:
                 detalle = "<br>".join(detalles) if detalles else "Sin fecha · por programar"
                 filas_rivales += f'<div class="resumen-rival"><strong>{escape(equipos_map[rival])}</strong><small>{detalle}</small></div>'
             if not rivales:
-                filas_rivales = '<div class="resumen-rival">✓ Completó todos sus cruces de Vuelta 2.</div>'
+                filas_rivales = f'<div class="resumen-rival">✓ Completó todos sus cruces · {_label_vuelta}.</div>'
             st.html(f'''<section class="resumen-rivales" aria-label="Rivales pendientes">
                 <div class="resumen-rivales-heading"><strong>{escape(equipos_map[seleccionado])}</strong>
-                <small>{len(rivales)} rivales por jugar · Vuelta 2</small></div>{filas_rivales}</section>''')
+                <small>{len(rivales)} rivales por jugar · {_label_vuelta}</small></div>{filas_rivales}</section>''')
     else:
         st.info("Todavía no hay equipos registrados.")
-    st.caption(f"{len(equipos_resumen)} equipos · un cruce por pareja. Incluye cruces sin fecha. Lagos, Sub 17 e Independiente(s) no participan en este resumen.")
+    _caption_resumen = (
+        f"{len(equipos_resumen)} equipos · un cruce por pareja. Incluye cruces sin fecha."
+        if _torneo_sel_id == 2
+        else f"{len(equipos_resumen)} equipos · un cruce por pareja. Incluye cruces sin fecha. Lagos, Sub 17 e Independiente(s) no participan en este resumen."
+    )
+    st.caption(_caption_resumen)
 
 
 with tab_clasificacion:
