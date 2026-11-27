@@ -490,6 +490,16 @@ with tab_publico:
                 </div>
             </div>"""
             
+        descansan_html = ""
+        if _torneo_sel_id == 2 and equipos_competicion:
+            jugando_ids = {p.get("equipo_local_id") for p in partidos} | {p.get("equipo_visita_id") for p in partidos}
+            descansan_nombres = sorted([
+                equipos_competicion[eid] for eid in equipos_competicion
+                if eid not in jugando_ids
+            ])
+            if descansan_nombres:
+                descansan_html = f'<div style="margin-top: 12px; padding-top: 10px; border-top: 1px solid #1E293B; text-align: center; font-size: 11px; color: #94A3B8; font-weight: 600;">💤 Descansan: <span style="color: #E2E8F0;">{escape(", ".join(descansan_nombres))}</span></div>'
+
         return f"""
         <div class="{clase_contenedor}">
             <div class="jornada-header">
@@ -502,6 +512,7 @@ with tab_publico:
                 <div class="cancha-title">Cancha 2</div>
                 </div>
             <div class="rows-container">{bloques}</div>
+            {descansan_html}
         </div>"""
 
     pizarra = f'<div class="pizarra-body">{CSS_HOJA_ESTILOS}'
